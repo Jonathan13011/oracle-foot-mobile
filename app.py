@@ -10,29 +10,60 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V22 (FILTRES & ERGONOMIE) ---
-st.set_page_config(page_title="Oracle V22", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V23 (FIX LISTES DÉROULANTES) ---
+st.set_page_config(page_title="Oracle V23", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
     /* FOND GÉNÉRAL & TEXTE */
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
-    p, h1, h2, h3, div, span, li, label, h4, h5, h6 { color: #FFFFFF !important; }
+    p, h1, h2, h3, div, span, label, h4, h5, h6 { color: #FFFFFF !important; }
 
-    /* SIDEBAR */
-    [data-testid="stSidebar"] { background-color: #0E1117 !important; border-right: 1px solid #333 !important; }
-    [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
-    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
-
-    /* FILTRES (MAIN PAGE) */
+    /* ==============================================
+       FIX CRITIQUE : LISTES DÉROULANTES (SELECTBOX)
+       ============================================== */
+    
+    /* 1. La boîte de sélection fermée */
     div[data-baseweb="select"] > div {
         background-color: #1a1c24 !important;
         color: white !important;
         border-color: #333 !important;
     }
-    div[data-baseweb="menu"] { background-color: #1a1c24 !important; }
-    li[role="option"] { color: white !important; }
-    li[role="option"]:hover { background-color: #00FF99 !important; color: black !important; }
+    
+    /* 2. Le texte à l'intérieur de la boîte fermée */
+    div[data-baseweb="select"] span {
+        color: white !important;
+    }
+    
+    /* 3. Le MENU DÉROULANT (La liste qui s'ouvre) - Force Fond Sombre */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+        background-color: #1a1c24 !important;
+        border: 1px solid #333 !important;
+    }
+    
+    /* 4. Les OPTIONS individuelles */
+    li[role="option"] {
+        background-color: #1a1c24 !important; /* Fond noir */
+        color: white !important;             /* Texte blanc */
+    }
+    
+    /* 5. Option survolée ou sélectionnée */
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+        background-color: #00FF99 !important; /* Fond vert */
+        color: black !important;              /* Texte noir */
+    }
+    
+    /* 6. L'icône flèche */
+    div[data-baseweb="select"] svg {
+        fill: white !important;
+    }
+
+    /* ============================================== */
+
+    /* SIDEBAR */
+    [data-testid="stSidebar"] { background-color: #0E1117 !important; border-right: 1px solid #333 !important; }
+    [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
+    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
 
     /* BOUTON QUANTUM */
     .quantum-btn {
@@ -91,7 +122,7 @@ except: model = None; MODEL_LOADED = False
 # --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
-    # MODIF V22 : Seulement 48h (days=2)
+    # 48h Filter
     today = datetime.now().strftime("%Y-%m-%d")
     end = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d") 
     fixtures = []
@@ -226,35 +257,28 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE & LAYOUT PRINCIPAL ---
-st.title("📱 ORACLE V22")
+st.title("📱 ORACLE V23")
 
 # Récupération de TOUS les matchs (48h)
 all_fixtures = get_upcoming_matches()
 
 # --- SÉLECTION SUR LA PAGE PRINCIPALE (FILTRES + SELECTBOX) ---
 if all_fixtures:
-    # Tri par date pour le confort
     all_fixtures.sort(key=lambda x: x['fixture']['date'])
-    
-    # Création des listes pour les filtres
     competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
     dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures]))) # YYYY-MM-DD
     
     st.markdown("### 📅 SÉLECTION DU MATCH")
-    
-    # Zone des Filtres
     c_filt1, c_filt2 = st.columns(2)
     selected_league = c_filt1.selectbox("Filtrer par Compétition", ["Toutes"] + competitions)
     selected_date = c_filt2.selectbox("Filtrer par Date", ["Toutes"] + dates)
     
-    # Application des filtres
     filtered_fixtures = all_fixtures
     if selected_league != "Toutes":
         filtered_fixtures = [f for f in filtered_fixtures if f['league']['name'] == selected_league]
     if selected_date != "Toutes":
         filtered_fixtures = [f for f in filtered_fixtures if f['fixture']['date'][:10] == selected_date]
         
-    # Création de la map pour le SelectBox final
     if not filtered_fixtures:
         st.warning("Aucun match ne correspond aux filtres.")
         match_data = None
@@ -290,7 +314,7 @@ with st.sidebar:
                     with c2.popover("💡"): st.info(b['j'])
             idx+=1
 
-    # Bouton Quantum déplacé ici pour rester accessible mais il dépend de la sélection MAIN PAGE
+    # Bouton Quantum
     st.markdown("---")
     st.markdown("### ⚡ ANALYSE EXPERTE")
     if match_data:
@@ -305,11 +329,10 @@ with st.sidebar:
     else:
         st.caption("Sélectionnez un match à droite pour activer le Sniper.")
 
-# --- AFFICHAGE PRINCIPAL (SOUS LES FILTRES) ---
+# --- AFFICHAGE PRINCIPAL ---
 
 if match_data:
     st.markdown("---")
-    # BOUTON STANDARD
     if st.button("🚀 ANALYSER CE MATCH", type="primary"):
         st.session_state.quantum_mode = False 
         with st.spinner("Chargement..."):
@@ -321,12 +344,9 @@ if match_data:
                 s = sim_score(hs, as_) 
                 st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
 
-    # RÉSULTATS
     if st.session_state.analyzed_match_data:
         d = st.session_state.analyzed_match_data
-        # Vérif qu'on affiche bien le match sélectionné
         if d['m']['fixture']['id'] == match_data['fixture']['id']:
-            
             h, a, m = d['h'], d['a'], d['m']
             
             st.markdown(f"""
@@ -337,55 +357,25 @@ if match_data:
             </div>
             """, unsafe_allow_html=True)
 
-            # MODE QUANTUM
             if st.session_state.quantum_mode and 'q' in d:
                 q = d['q']
                 st.markdown("<div class='quantum-btn'>🧬 ANALYSE QUANTIQUE</div>", unsafe_allow_html=True)
-                
-                st.markdown(f"""
-                <div class="q-box">
-                    <div class="q-title">🎯 VISEUR SNIPER</div>
-                    <div style="text-align:center; font-size: 2.5rem; font-weight:900; color:#00FF99;">{q['sniper_score']}</div>
-                    <div style="text-align:center; font-size: 0.8rem; color:#888;">Confiance: {q['sniper_conf']:.1f}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"""<div class="q-box"><div class="q-title">🎯 VISEUR SNIPER</div><div style="text-align:center; font-size: 2.5rem; font-weight:900; color:#00FF99;">{q['sniper_score']}</div><div style="text-align:center; font-size: 0.8rem; color:#888;">Confiance: {q['sniper_conf']:.1f}%</div></div>""", unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(f"""
-                    <div class="q-box" style="height:100px;">
-                        <div class="q-title">🌊 MOMENTUM</div>
-                        <progress value="{q['momentum_h']}" max="100" style="width:100%; height:5px;"></progress>
-                        <div style="font-size:0.7rem; display:flex; justify-content:space-between;"><span>Dom</span><span>Ext</span></div>
-                    </div>""", unsafe_allow_html=True)
-                with c2:
+                with c1: st.markdown(f"""<div class="q-box" style="height:100px;"><div class="q-title">🌊 MOMENTUM</div><progress value="{q['momentum_h']}" max="100" style="width:100%; height:5px;"></progress><div style="font-size:0.7rem; display:flex; justify-content:space-between;"><span>Dom</span><span>Ext</span></div></div>""", unsafe_allow_html=True)
+                with c2: 
                     col = "#FF4B4B" if q['upset_risk'] > 30 else "#00FF99"
                     st.markdown(f"""<div class="q-box" style="height:100px;"><div class="q-title">⚠️ UPSET</div><div style="text-align:center; font-size:1.5rem; font-weight:bold; color:{col};">{q['upset_risk']:.0f}%</div></div>""", unsafe_allow_html=True)
-                
                 st.info(f"Prévision xG : {h['name']} ({q['xg_h']:.2f}) - {a['name']} ({q['xg_a']:.2f})")
 
-            # MODE STANDARD
             elif 'p' in d:
                 p, s, hid, aid = d['p'], d['s'], d['hid'], d['aid']
-                
-                st.markdown(f"""
-                <div class="probs-container">
-                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div>
-                    <div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div>
-                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                with st.expander("🔎 Analyse détaillée"):
-                    st.info(f"**Dom :** {gen_justif('🏆 Résultat', 'Domicile', h, a)}")
-                    st.info(f"**Ext :** {gen_justif('🏆 Résultat', 'Extérieur', h, a)}")
-                
+                st.markdown(f"""<div class="probs-container"><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div><div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div></div>""", unsafe_allow_html=True)
+                with st.expander("🔎 Voir l'analyse"): st.info(f"**Dom :** {gen_justif('🏆 Résultat', 'Domicile', h, a)}"); st.info(f"**Ext :** {gen_justif('🏆 Résultat', 'Extérieur', h, a)}")
                 st.progress(int(max(p)*100))
                 
                 st.markdown("### 📊 Comparateur")
-                opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], 
-                        "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
-                        "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']]}
+                opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']], "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']]}
                 sel_opt = st.selectbox("Critère", list(opts.keys()), key="graph_sel")
                 dat = opts[sel_opt]
                 df = pd.DataFrame({'Eq': [m['teams']['home']['name'], m['teams']['away']['name']], 'Val': [dat[1], dat[2]]})
