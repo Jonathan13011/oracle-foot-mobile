@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V26 (STABLE & CORRIGÉE) ---
-st.set_page_config(page_title="Oracle V26", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V27 (MISE À JOUR 72H & FILTRE LIVE) ---
+st.set_page_config(page_title="Oracle V27", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -19,7 +19,7 @@ st.markdown("""
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, label, h4, h5, h6, li { color: #FFFFFF !important; }
 
-    /* SELECTBOX FIX (V23) */
+    /* SELECTBOX FIX (Design Sombre) */
     div[data-baseweb="select"] > div { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     div[data-baseweb="select"] span { color: white !important; }
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] { background-color: #1a1c24 !important; border: 1px solid #333 !important; }
@@ -78,22 +78,31 @@ if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
 
-# --- MOTEUR DONNÉES ---
+# --- MOTEUR DONNÉES (MISE A JOUR V27) ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
+    # MODIF : 3 Jours (J, J+1, J+2)
     today = datetime.now().strftime("%Y-%m-%d")
-    end = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d") 
-    fixtures = []
+    end = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d") 
+    
+    clean_fixtures = []
+    
     for l in LEAGUE_IDS:
         try:
             r = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"league": l, "season": "2025", "from": today, "to": end, "timezone": "Europe/Paris"}).json()
-            if 'response' in r: fixtures.extend(r['response'])
+            if 'response' in r:
+                for f in r['response']:
+                    # FILTRE INTELLIGENT : On ne garde que les matchs NON COMMENCÉS (NS) ou A DÉFINIR (TBD)
+                    # On exclut les FT (Finis), 1H/2H (En cours), PST (Reportés), etc.
+                    status = f['fixture']['status']['short']
+                    if status in ['NS', 'TBD']:
+                        clean_fixtures.append(f)
         except: pass
-    return fixtures
+        
+    return clean_fixtures
 
 @st.cache_data(ttl=3600)
 def get_deep_stats(tid):
-    # Récupération de 20 matchs pour historique long
     d = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"team": str(tid), "last": "20", "status": "FT"}).json().get('response', [])
     if not d: return None
     
@@ -103,7 +112,6 @@ def get_deep_stats(tid):
         gf = (m['goals']['home'] if h else m['goals']['away']) or 0
         ga = (m['goals']['away'] if h else m['goals']['home']) or 0
         res = "✅" if gf > ga else ("➖" if gf == ga else "❌")
-        # Simulation données manquantes discipline
         history.append({
             "gf": gf, "ga": ga, "res": res, 
             "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0,
@@ -118,42 +126,32 @@ def get_deep_stats(tid):
     }
 
 def process_stats_by_filter(raw_stats, limit):
-    # CRUCIAL : Cette fonction prépare les données pour l'affichage
-    # Elle DOIT retourner le nom de l'équipe pour éviter le KeyError
     if not raw_stats or 'history' not in raw_stats: return None
-    
     data = raw_stats['history'][:limit]
     if not data: return None
     
     gs = [x['gf'] for x in data]
     gc = [x['ga'] for x in data]
-    
-    # Calculs
     avg_gf = sum(gs)/len(data) if data else 0
     avg_ga = sum(gc)/len(data) if data else 0
-    
-    # Forme : 3 pts win, 1 pt draw
     pts = sum([3 if x['res']=="✅" else (1 if x['res']=="➖" else 0) for x in data])
     form = pts / len(data) if data else 0
-    
     cs = sum([1 for x in data if x['ga']==0])
     btts = sum([1 for x in data if x['gf']>0 and x['ga']>0])
-    
     pen_for = sum([x['pen_call'] for x in data])
     reds = sum([x['red_card'] for x in data])
-    
     try: vol = statistics.stdev(gs)
     except: vol = 0
     
     return {
-        "name": raw_stats['name'], # <-- FIX DU BUG KEYERROR
+        "name": raw_stats['name'],
         "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form,
         "cs_rate": cs/len(data)*100 if data else 0, 
         "btts_rate": btts/len(data)*100 if data else 0,
         "vol": vol, "pen_for": pen_for, "red_cards": reds,
         "streak": "".join([x['res'] for x in data[:5]]),
         "count": len(data),
-        "raw_gf": gs # Pour Quantum
+        "raw_gf": gs
     }
 
 @st.cache_data(ttl=86400)
@@ -186,35 +184,27 @@ def get_h2h_stats(h_id, a_id):
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
 # --- INTELLIGENCE ---
-
 def simulate_10k_scenarios(h_stats, a_stats):
     h_lam = max(0.1, (h_stats['avg_gf'] + a_stats['avg_ga']) / 2)
     a_lam = max(0.1, (a_stats['avg_gf'] + h_stats['avg_ga']) / 2)
     scores = []
     red_c, pen_c = 0, 0
-    
     for _ in range(10000):
         chaos = random.random()
-        # Simu Red Card
         hr = 1 if (chaos > 0.98 and h_stats['red_cards']>0) else 0
         ar = 1 if (chaos > 0.98 and a_stats['red_cards']>0) else 0
         if hr or ar: red_c += 1
-        
-        # Simu Penalty
         ip = 1 if chaos < 0.05 else 0
         if ip: pen_c += 1
-        
         s_h = np.random.poisson(h_lam * (0.8 if hr else 1.0)) + (1 if ip and random.random()>0.5 else 0)
         s_a = np.random.poisson(a_lam * (0.8 if ar else 1.0))
         scores.append(f"{s_h}-{s_a}")
-        
     return Counter(scores).most_common(3), red_c, pen_c
 
 def get_quantum_analysis(h, a):
     lg_avg = 1.35
     xg_h = (h['avg_gf'] / 1.35) * (a['avg_ga'] / 1.35) * 1.35 * 1.15
     xg_a = (a['avg_gf'] / 1.35) * (h['avg_ga'] / 1.35) * 1.35
-    
     best_s, best_p, upset, fav = "0-0", 0, 0, 0
     for i in range(6):
         for j in range(6):
@@ -222,17 +212,13 @@ def get_quantum_analysis(h, a):
             if p > best_p: best_p=p; best_s=f"{i}-{j}"
             if xg_h > xg_a and j > i: upset += p
             elif xg_a > xg_h and i > j: upset += p
-            
-    alpha = min(99, best_p * 300) # Fake alpha calc based on confidence
+    alpha = min(99, best_p * 300)
     return {"sniper_score": best_s, "sniper_conf": best_p*100, "upset_risk": upset*100, "alpha_index": alpha, "xg_h": xg_h, "xg_a": xg_a}
 
 def gen_smart_justif(type, val, h, a):
-    # Générateur d'arguments sécurisé
     r = []
-    # On utilise .get() pour éviter les crashs si une clé manque
     h_name = h.get('name', 'Domicile')
     a_name = a.get('name', 'Extérieur')
-    
     if "Domicile" in val:
         if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme.")
         if h.get('avg_gf', 0) > 1.5: r.append("Attaque prolifique à domicile.")
@@ -240,9 +226,7 @@ def gen_smart_justif(type, val, h, a):
     elif "Extérieur" in val:
         if a.get('form', 0) > 1.5: r.append(f"{a_name} voyage bien.")
         if a.get('avg_gf', 0) > 1.5: r.append("Contre-attaque efficace.")
-    elif "Nul" in val:
-        r.append("Forces équilibrées.")
-    
+    elif "Nul" in val: r.append("Forces équilibrées.")
     return random.choice(r) if r else "Analyse statistique favorable."
 
 # --- TICKETS ---
@@ -256,8 +240,6 @@ def gen_match_ticket(fix):
         if raw_h and raw_a:
             hs = process_stats_by_filter(raw_h, 10)
             as_ = process_stats_by_filter(raw_a, 10)
-            
-            # Simple algo ticket
             if hs['form'] > 2.0 and as_['form'] < 1.0:
                 pools["WIN"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🏆 Résultat", "v": f"Victoire {hs['name']}", "j": "Forme impériale"})
             elif (hs['avg_gf'] + as_['avg_gf']) > 3.0:
@@ -267,7 +249,6 @@ def gen_match_ticket(fix):
     final = []
     if pools["WIN"]: final.append(pools["WIN"][0])
     if pools["OVER"]: final.append(pools["OVER"][0])
-    # Fill up
     all_bets = pools["WIN"] + pools["OVER"]
     random.shuffle(all_bets)
     return (final + all_bets)[:6]
@@ -285,7 +266,7 @@ def gen_scorer_ticket(fix):
     return scorers[:6]
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V26")
+st.title("📱 ORACLE V27")
 
 all_fixtures = get_upcoming_matches()
 
@@ -294,7 +275,7 @@ if all_fixtures:
     competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
     dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
     
-    st.markdown("### 📅 SÉLECTION DU MATCH")
+    st.markdown("### 📅 SÉLECTION DU MATCH (3 Jours)")
     c1, c2 = st.columns(2)
     sel_league = c1.selectbox("Compétition", ["Toutes"] + competitions)
     sel_date = c2.selectbox("Date", ["Toutes"] + dates)
@@ -308,6 +289,9 @@ if all_fixtures:
         sel_match = st.selectbox("Rencontre", list(match_map.keys()))
         match_data = match_map[sel_match]
     else: match_data = None
+else:
+    st.info("Aucun match prévu pour les 72 prochaines heures dans les ligues suivies.")
+    match_data = None
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -320,7 +304,6 @@ with st.sidebar:
         st.session_state.mode = "scorer"
         with st.spinner("Recherche..."): st.session_state.scorer_ticket = gen_scorer_ticket(all_fixtures)
 
-    # Tickets Display
     if st.session_state.mode == "std" and st.session_state.ticket_data:
         st.success("✅ TICKET MATCHS")
         for i, item in enumerate(st.session_state.ticket_data):
@@ -339,24 +322,18 @@ with st.sidebar:
 # --- ANALYSE ---
 if match_data:
     st.markdown("---")
-    
-    # BOUTONS ALIGNÉS
     b1, b2 = st.columns(2)
     if b1.button("🚀 ANALYSER", type="primary", use_container_width=True):
         st.session_state.quantum_mode = False
         with st.spinner("Analyse..."):
             hid, aid = match_data['teams']['home']['id'], match_data['teams']['away']['id']
             raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-            # Default 10 stats
             hs = process_stats_by_filter(raw_h, 10)
             as_ = process_stats_by_filter(raw_a, 10)
-            
-            # ML Fake Pred (Replace with real model if avail)
             p = [0.45, 0.30, 0.25] 
             if model:
                 vec = np.array([[match_data['league']['id'], hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
                 p = model.predict_proba(vec)[0]
-
             st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
 
     if b2.button("🧬 QUANTUM SNIPER", use_container_width=True):
@@ -369,13 +346,10 @@ if match_data:
             q = get_quantum_analysis(hs, as_)
             st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": [0.33,0.33,0.33], "q": q}
 
-    # RÉSULTATS
     if st.session_state.analyzed_match_data:
         d = st.session_state.analyzed_match_data
         if d['m']['fixture']['id'] == match_data['fixture']['id']:
             m = d['m']
-            
-            # HEADER
             st.markdown(f"""
             <div class="match-header">
                 <div class="team-box"><img src="{m['teams']['home']['logo']}" class="team-logo"><div class="team-name">{m['teams']['home']['name']}</div></div>
@@ -384,39 +358,24 @@ if match_data:
             </div>
             """, unsafe_allow_html=True)
             
-            # FILTRES
             filter_opt = st.radio("Analyser sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, label_visibility="collapsed")
             limit = 5 if "5" in filter_opt else (20 if "Saison" in filter_opt else 10)
-            
             h = process_stats_by_filter(d['raw_h'], limit)
             a = process_stats_by_filter(d['raw_a'], limit)
             
-            # AFFICHAGE QUANTUM
             if st.session_state.quantum_mode and 'q' in d:
                 q = d['q']
                 st.markdown(f"""<div class="q-box"><div class="q-title">🎯 VISEUR SNIPER</div><div style="text-align:center; font-size:2.5rem; font-weight:900; color:#00FF99;">{q['sniper_score']}</div><div style="text-align:center; font-size:0.8rem; color:#888;">Confiance: {q['sniper_conf']:.1f}%</div></div>""", unsafe_allow_html=True)
                 st.info(f"xG Prédictifs : Dom {q['xg_h']:.2f} - Ext {q['xg_a']:.2f}")
-
-            # AFFICHAGE STANDARD
             else:
                 p = d['p']
-                st.markdown(f"""
-                <div class="probs-container">
-                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div>
-                    <div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div>
-                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div>
-                </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"""<div class="probs-container"><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div><div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div></div>""", unsafe_allow_html=True)
                 with st.expander("🔎 Voir l'analyse"):
                     st.info(f"**Dom :** {gen_smart_justif('🏆 Résultat', 'Domicile', h, a)}")
                     st.info(f"**Ext :** {gen_smart_justif('🏆 Résultat', 'Extérieur', h, a)}")
-                
                 st.progress(int(max(p)*100))
                 
-                # TABS
                 t1, t2, t3, t4 = st.tabs(["🔮 Score 10k", "⚡ Stats & Buteurs", "🛑 Discipline", "💰 Conseil"])
-                
                 with t1:
                     st.write(f"**Simulation 10 000 Matchs ({filter_opt})**")
                     scores, red, pens = simulate_10k_scenarios(h, a)
@@ -425,13 +384,11 @@ if match_data:
                     if len(scores)>1: c2.metric("#2", scores[1][0], f"{scores[1][1]}x")
                     if len(scores)>2: c3.metric("#3", scores[2][0], f"{scores[2][1]}x")
                     st.caption(f"Risques : 🟥 {red/100:.1f}% | ⚽ Pen {pens/100:.1f}%")
-                    
                 with t2:
                     def row(l, v1, v2, u=""): st.markdown(f"<div class='stat-row'><span class='stat-label'>{l}</span><span class='stat-val'>{v1}{u} vs {v2}{u}</span></div>", unsafe_allow_html=True)
                     row("Moy. Buts", f"{h['avg_gf']:.2f}", f"{a['avg_gf']:.2f}")
                     row("Moy. Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
                     row("Clean Sheets", f"{h['cs_rate']:.0f}", f"{a['cs_rate']:.0f}", "%")
-                    
                     st.markdown("---")
                     st.markdown("#### 🎯 Buteurs")
                     sh = get_top_scorers(d['raw_h']['league_id'], d['raw_h']['id'])
@@ -445,7 +402,6 @@ if match_data:
                         if sa: 
                             for s in sa: st.write(f"• {s['name']} ({s['goals']}b)")
                         else: st.write("-")
-
                 with t3:
                     st.write(f"#### Discipline ({filter_opt})")
                     c_d1, c_d2 = st.columns(2)
@@ -457,12 +413,8 @@ if match_data:
                         st.info(f"**{a['name']}**")
                         st.write(f"🟥 Rouges: **{a['red_cards']}**")
                         st.write(f"🥅 Pens Pour: **{a['pen_for']}**")
-                    
-                    # H2H Optionnel
                     if st.checkbox("Voir Historique H2H"):
                         h2h = get_h2h_stats(d['raw_h']['id'], d['raw_a']['id'])
                         if h2h: st.success(f"H2H ({h2h['matches']}m): {h2h['avg_goals']:.1f} buts/match")
                         else: st.warning("Pas d'historique récent.")
-
-                with t4:
-                    st.success(f"Confiance: {max(p)*100:.0f}%")
+                with t4: st.success(f"Confiance: {max(p)*100:.0f}%")
