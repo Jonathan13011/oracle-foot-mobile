@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V21 (QUANTUM MAX) ---
-st.set_page_config(page_title="Oracle V21", layout="wide", page_icon="🧬")
+# --- 1. CONFIGURATION V22 (FILTRES & ERGONOMIE) ---
+st.set_page_config(page_title="Oracle V22", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -24,17 +24,21 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
     [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
 
-    /* BOUTON QUANTUM (DESIGN CYBERPUNK) */
+    /* FILTRES (MAIN PAGE) */
+    div[data-baseweb="select"] > div {
+        background-color: #1a1c24 !important;
+        color: white !important;
+        border-color: #333 !important;
+    }
+    div[data-baseweb="menu"] { background-color: #1a1c24 !important; }
+    li[role="option"] { color: white !important; }
+    li[role="option"]:hover { background-color: #00FF99 !important; color: black !important; }
+
+    /* BOUTON QUANTUM */
     .quantum-btn {
         border: 2px solid #00D4FF; background: linear-gradient(90deg, #001133, #004488);
         color: #00D4FF; font-weight: 900; padding: 15px; text-align: center; border-radius: 10px;
         box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); margin-bottom: 20px;
-    }
-
-    /* MOBILE FIXES (V19 BASE) */
-    @media only screen and (max-width: 640px) {
-        .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
-        div[data-testid="column"] { padding: 0 !important; }
     }
 
     /* HEADER MATCH */
@@ -47,7 +51,7 @@ st.markdown("""
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
     .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; }
 
-    /* PROBS STANDARD */
+    /* PROBS */
     .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
@@ -57,16 +61,18 @@ st.markdown("""
     /* QUANTUM STATS */
     .q-box { background: #0b1016; border: 1px solid #00D4FF; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
     .q-title { color: #00D4FF !important; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-    .q-val-big { font-size: 1.5rem; font-weight: 900; color: white !important; }
-    .q-desc { font-size: 0.7rem; color: #888 !important; }
 
     /* GENERAL */
-    div[data-baseweb="select"] > div, div[data-baseweb="popover"] { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; width: 100%; }
     div[data-testid="stSidebarUserContent"] .stButton > button { border: none; font-weight: bold; }
     .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
     .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
     .stat-label { color: #aaa; } .stat-val { font-weight: bold; }
+    
+    /* MOBILE PADDING */
+    @media only screen and (max-width: 640px) {
+        .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -85,7 +91,10 @@ except: model = None; MODEL_LOADED = False
 # --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
-    today = datetime.now().strftime("%Y-%m-%d"); end = (datetime.now() + timedelta(days=4)).strftime("%Y-%m-%d"); fixtures = []
+    # MODIF V22 : Seulement 48h (days=2)
+    today = datetime.now().strftime("%Y-%m-%d")
+    end = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d") 
+    fixtures = []
     for l in LEAGUE_IDS:
         try:
             r = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"league": l, "season": "2025", "from": today, "to": end, "timezone": "Europe/Paris"}).json()
@@ -102,12 +111,10 @@ def get_deep_stats(tid):
         h = m['teams']['home']['id'] == tid
         gf, ga = (m['goals']['home'] if h else m['goals']['away']) or 0, (m['goals']['away'] if h else m['goals']['home']) or 0
         gs.append(gf); gc.append(ga)
-        # HT Check
         try:
             hf, ha = (m['score']['halftime']['home'] if h else m['score']['halftime']['away']) or 0, (m['score']['halftime']['away'] if h else m['score']['halftime']['home']) or 0
             if hf > ha: ht_w += 1
         except: pass
-        
         if gf>0 and ga>0: btts+=1
         if ga==0: cs+=1
         if gf>ga: pts+=3; res.append("✅")
@@ -132,9 +139,8 @@ def get_h2h_stats(h_id, a_id):
     if not goals: return None
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
-# --- FONCTION SIMULATION (RESTAURÉE POUR MODE STANDARD) ---
+# --- ANALYSES ---
 def sim_score(h, a):
-    # La fonction standard que tu avais aimée
     sims = []
     for _ in range(5000):
         lam_h = max(0.1, (h['avg_gf']+a['avg_ga'])/2)
@@ -142,67 +148,30 @@ def sim_score(h, a):
         sims.append(f"{np.random.poisson(lam_h)}-{np.random.poisson(lam_a)}")
     return Counter(sims).most_common(3)
 
-# --- INTELLIGENCE V21 (QUANTUM ENGINE) ---
 def get_quantum_analysis(h, a):
-    # 1. Calculs de base
     lg_avg = 1.35
     xg_h = (h['avg_gf'] / lg_avg) * (a['avg_ga'] / lg_avg) * lg_avg * 1.15
     xg_a = (a['avg_gf'] / lg_avg) * (h['avg_ga'] / lg_avg) * lg_avg
-    
-    # 2. Sniper Exact Score (Le plus probable de la matrice)
-    best_score = "0-0"
-    best_prob = 0
-    upset_prob = 0
-    fav_prob = 0
-    
+    best_score, best_prob, upset_prob, fav_prob = "0-0", 0, 0, 0
     for i in range(6):
         for j in range(6):
             p = (math.exp(-xg_h) * (xg_h**i) / math.factorial(i)) * (math.exp(-xg_a) * (xg_a**j) / math.factorial(j))
-            if p > best_prob:
-                best_prob = p
-                best_score = f"{i}-{j}"
-            # Upset calc (Si outsider gagne)
+            if p > best_prob: best_prob = p; best_score = f"{i}-{j}"
             if xg_h > xg_a and j > i: upset_prob += p
             elif xg_a > xg_h and i > j: upset_prob += p
-            # Fav calc
             if xg_h > xg_a and i > j: fav_prob += p
             elif xg_a > xg_h and j > i: fav_prob += p
-
-    # 3. Momentum (Forme récente pondérée)
-    # On donne plus de poids aux derniers matchs. ✅=3, ➖=1, ❌=0
+    
     def calc_mom(streak):
-        score = 0
-        weights = [5, 4, 3, 2, 1] # Plus récent = plus important
-        for i, char in enumerate(streak):
-            val = 3 if char == "✅" else (1 if char == "➖" else 0)
-            score += val * weights[i]
-        return score / 45 * 100 # Normalisé sur 100
+        s=0; w=[5,4,3,2,1]
+        for i, c in enumerate(streak): s += (3 if c=="✅" else (1 if c=="➖" else 0)) * w[i]
+        return s/45*100
     
-    mom_h = calc_mom(h['streak'])
-    mom_a = calc_mom(a['streak'])
-    momentum_diff = mom_h - mom_a
+    mom_h = calc_mom(h['streak']); mom_a = calc_mom(a['streak'])
+    ht_pred = "1/N (MT)" if h['ht_win_rate'] > 45 else ("N/2 (MT)" if a['ht_win_rate'] > 45 else "Nul MT")
+    alpha = min(99, (fav_prob * 100) + (abs(mom_h - mom_a) * 0.2))
+    return {"sniper_score": best_score, "sniper_conf": best_prob*100, "momentum_h": mom_h, "momentum_a": mom_a, "upset_risk": upset_prob*100, "ht_pred": ht_pred, "alpha_index": alpha, "xg_h": xg_h, "xg_a": xg_a}
 
-    # 4. HT Master (Prédiction Mi-temps)
-    ht_pred = "Nul MT"
-    if h['ht_win_rate'] > 45 and a['ht_win_rate'] < 20: ht_pred = f"1/N (MT)"
-    elif a['ht_win_rate'] > 45 and h['ht_win_rate'] < 20: ht_pred = f"N/2 (MT)"
-    
-    # 5. Value Index (Alpha)
-    # Combine la certitude mathématique et la forme
-    alpha = (fav_prob * 100) + (abs(momentum_diff) * 0.2)
-    alpha = min(99, alpha)
-
-    return {
-        "sniper_score": best_score,
-        "sniper_conf": best_prob * 100,
-        "momentum_h": mom_h, "momentum_a": mom_a,
-        "upset_risk": upset_prob * 100,
-        "ht_pred": ht_pred,
-        "alpha_index": alpha,
-        "xg_h": xg_h, "xg_a": xg_a
-    }
-
-# --- FONCTIONS STANDARDS ---
 def gen_justif(type, val, h, a):
     r = []
     if type=="🏆 Résultat":
@@ -225,7 +194,6 @@ def analyze_probs(h, a, p):
     elif avg_t>2.8: preds.append({"t": "⚽ Buts", "v": "+2.5 Buts", "c": min(0.9, avg_t/3.5), "cat": "OVER"})
     btts = (h['btts_rate']+a['btts_rate'])/2
     if btts>60: preds.append({"t": "🥅 BTTS", "v": "Oui", "c": btts/100, "cat": "BTTS"})
-    
     for pr in preds: pr['j'] = gen_justif(pr['t'], pr['v'], h, a)
     return preds
 
@@ -257,18 +225,56 @@ def gen_ticket(fix):
         if len(grouped[item['m']])<3: grouped[item['m']].append(item)
     return grouped
 
-# --- INTERFACE ---
-st.title("📱 ORACLE V21")
+# --- INTERFACE & LAYOUT PRINCIPAL ---
+st.title("📱 ORACLE V22")
 
+# Récupération de TOUS les matchs (48h)
+all_fixtures = get_upcoming_matches()
+
+# --- SÉLECTION SUR LA PAGE PRINCIPALE (FILTRES + SELECTBOX) ---
+if all_fixtures:
+    # Tri par date pour le confort
+    all_fixtures.sort(key=lambda x: x['fixture']['date'])
+    
+    # Création des listes pour les filtres
+    competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
+    dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures]))) # YYYY-MM-DD
+    
+    st.markdown("### 📅 SÉLECTION DU MATCH")
+    
+    # Zone des Filtres
+    c_filt1, c_filt2 = st.columns(2)
+    selected_league = c_filt1.selectbox("Filtrer par Compétition", ["Toutes"] + competitions)
+    selected_date = c_filt2.selectbox("Filtrer par Date", ["Toutes"] + dates)
+    
+    # Application des filtres
+    filtered_fixtures = all_fixtures
+    if selected_league != "Toutes":
+        filtered_fixtures = [f for f in filtered_fixtures if f['league']['name'] == selected_league]
+    if selected_date != "Toutes":
+        filtered_fixtures = [f for f in filtered_fixtures if f['fixture']['date'][:10] == selected_date]
+        
+    # Création de la map pour le SelectBox final
+    if not filtered_fixtures:
+        st.warning("Aucun match ne correspond aux filtres.")
+        match_data = None
+    else:
+        match_map = {f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in filtered_fixtures}
+        selected_label = st.selectbox("Choisir une rencontre", list(match_map.keys()))
+        match_data = match_map[selected_label]
+else:
+    st.error("Aucun match disponible pour les 48h prochaines heures.")
+    match_data = None
+
+# --- SIDEBAR (TICKET + QUANTUM) ---
 with st.sidebar:
     st.header("🎟️ TICKET")
-    fix = get_upcoming_matches()
     if st.button("🎰 GÉNÉRER", type="primary"):
-        if not fix: st.error("Pas de matchs.")
+        if not all_fixtures: st.error("Pas de matchs.")
         else:
             with st.spinner("Analyse..."): 
-                st.session_state.ticket_data = gen_ticket(fix)
-                st.session_state.quantum_mode = False # Reset
+                st.session_state.ticket_data = gen_ticket(all_fixtures)
+                st.session_state.quantum_mode = False
 
     if st.session_state.ticket_data and not st.session_state.quantum_mode:
         st.success("✅ PRÊT !")
@@ -284,168 +290,130 @@ with st.sidebar:
                     with c2.popover("💡"): st.info(b['j'])
             idx+=1
 
-    st.header("🔍 MATCH")
-    if fix:
-        fix.sort(key=lambda x: x['fixture']['date'])
-        m_map = {f"[{f['league']['name']}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in fix}
-        sel = st.selectbox("Rencontre", list(m_map.keys()))
-        m_data = m_map[sel]
-
-    # BOUTON QUANTUM SNIPER
+    # Bouton Quantum déplacé ici pour rester accessible mais il dépend de la sélection MAIN PAGE
     st.markdown("---")
-    if st.button("🧬 QUANTUM SNIPER", key="btn_quantum"):
-        st.session_state.quantum_mode = True
-        st.session_state.ticket_data = None
-        with st.spinner("Activation du Moteur Quantique..."):
-            hid, aid, lid = m_data['teams']['home']['id'], m_data['teams']['away']['id'], m_data['league']['id']
+    st.markdown("### ⚡ ANALYSE EXPERTE")
+    if match_data:
+        if st.button("🧬 QUANTUM SNIPER", key="btn_quantum"):
+            st.session_state.quantum_mode = True
+            st.session_state.ticket_data = None
+            with st.spinner("Moteur Quantique..."):
+                hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
+                hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
+                q_data = get_quantum_analysis(hs, as_)
+                st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "q": q_data}
+    else:
+        st.caption("Sélectionnez un match à droite pour activer le Sniper.")
+
+# --- AFFICHAGE PRINCIPAL (SOUS LES FILTRES) ---
+
+if match_data:
+    st.markdown("---")
+    # BOUTON STANDARD
+    if st.button("🚀 ANALYSER CE MATCH", type="primary"):
+        st.session_state.quantum_mode = False 
+        with st.spinner("Chargement..."):
+            hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
             hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
-            # Calculs Quantum
-            q_data = get_quantum_analysis(hs, as_)
-            st.session_state.analyzed_match_data = {"m": m_data, "h": hs, "a": as_, "q": q_data}
+            if hs and as_ and model:
+                vec = np.array([[lid, hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
+                p = model.predict_proba(vec)[0]
+                s = sim_score(hs, as_) 
+                st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
 
-# --- AFFICHAGE PRINCIPAL ---
-
-# BOUTON STANDARD (Réparé)
-if st.button("🚀 ANALYSER", type="primary"):
-    st.session_state.quantum_mode = False # Force Standard Mode
-    with st.spinner("Chargement..."):
-        hid, aid, lid = m_data['teams']['home']['id'], m_data['teams']['away']['id'], m_data['league']['id']
-        hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
-        if hs and as_ and model:
-            vec = np.array([[lid, hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
-            p = model.predict_proba(vec)[0]
-            # Ici sim_score fonctionnera car elle est définie plus haut
-            s = sim_score(hs, as_) 
-            st.session_state.analyzed_match_data = {"m": m_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
-
-if st.session_state.analyzed_match_data:
-    d = st.session_state.analyzed_match_data
-    
-    # Si on est en mode standard mais qu'on a des données quantum, on nettoie ou inversement
-    # (Simple check de sécurité)
-    
-    h, a, m = d['h'], d['a'], d['m']
-    
-    # Header Commun
-    st.markdown(f"""
-    <div class="match-header">
-        <div class="team-box"><img src="{m['teams']['home']['logo']}" class="team-logo"><div class="team-name">{m['teams']['home']['name']}</div></div>
-        <div class="vs-box">VS</div>
-        <div class="team-box"><img src="{m['teams']['away']['logo']}" class="team-logo"><div class="team-name">{m['teams']['away']['name']}</div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # === AFFICHAGE MODE QUANTUM ===
-    if st.session_state.quantum_mode and 'q' in d:
-        q = d['q']
-        st.markdown("<div class='quantum-btn'>🧬 ANALYSE QUANTIQUE ACTIVÉE</div>", unsafe_allow_html=True)
-        
-        # 1. SNIPER EXACT SCORE
-        st.markdown(f"""
-        <div class="q-box">
-            <div class="q-title">🎯 VISEUR SNIPER (Score Exact)</div>
-            <div style="text-align:center; font-size: 2.5rem; font-weight:900; color:#00FF99; text-shadow: 0 0 10px #00FF99;">
-                {q['sniper_score']}
-            </div>
-            <div style="text-align:center; font-size: 0.8rem; color:#888;">Probabilité pure: {q['sniper_conf']:.1f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 2. MOMENTUM & UPSET
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f"""
-            <div class="q-box" style="height:120px;">
-                <div class="q-title">🌊 MOMENTUM</div>
-                <div style="font-size:0.8rem;">Domicile: <b>{q['momentum_h']:.0f}</b></div>
-                <div style="font-size:0.8rem;">Extérieur: <b>{q['momentum_a']:.0f}</b></div>
-                <progress value="{q['momentum_h']}" max="100" style="width:100%; height:5px;"></progress>
-            </div>
-            """, unsafe_allow_html=True)
-        with c2:
-            color = "#FF4B4B" if q['upset_risk'] > 30 else "#00FF99"
-            st.markdown(f"""
-            <div class="q-box" style="height:120px;">
-                <div class="q-title">⚠️ RISQUE SURPRISE</div>
-                <div style="text-align:center; font-size:1.8rem; font-weight:bold; color:{color}; margin-top:10px;">
-                    {q['upset_risk']:.0f}%
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # RÉSULTATS
+    if st.session_state.analyzed_match_data:
+        d = st.session_state.analyzed_match_data
+        # Vérif qu'on affiche bien le match sélectionné
+        if d['m']['fixture']['id'] == match_data['fixture']['id']:
             
-        # 3. HT & VALUE
-        c3, c4 = st.columns(2)
-        with c3:
+            h, a, m = d['h'], d['a'], d['m']
+            
             st.markdown(f"""
-            <div class="q-box">
-                <div class="q-title">⏱️ HT MASTER</div>
-                <div style="text-align:center; font-weight:bold; font-size:1.1rem;">{q['ht_pred']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with c4:
-            st.markdown(f"""
-            <div class="q-box">
-                <div class="q-title">💎 INDICE ALPHA</div>
-                <div style="text-align:center; font-weight:bold; font-size:1.1rem; color:#FFA500;">{q['alpha_index']:.0f}/100</div>
+            <div class="match-header">
+                <div class="team-box"><img src="{m['teams']['home']['logo']}" class="team-logo"><div class="team-name">{m['teams']['home']['name']}</div></div>
+                <div class="vs-box">VS</div>
+                <div class="team-box"><img src="{m['teams']['away']['logo']}" class="team-logo"><div class="team-name">{m['teams']['away']['name']}</div></div>
             </div>
             """, unsafe_allow_html=True)
 
-        st.info(f"💡 **Conseil Quantum :** Le modèle prévoit {q['xg_h']:.1f} buts pour {h['name']} et {q['xg_a']:.1f} pour {a['name']}.")
+            # MODE QUANTUM
+            if st.session_state.quantum_mode and 'q' in d:
+                q = d['q']
+                st.markdown("<div class='quantum-btn'>🧬 ANALYSE QUANTIQUE</div>", unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                <div class="q-box">
+                    <div class="q-title">🎯 VISEUR SNIPER</div>
+                    <div style="text-align:center; font-size: 2.5rem; font-weight:900; color:#00FF99;">{q['sniper_score']}</div>
+                    <div style="text-align:center; font-size: 0.8rem; color:#888;">Confiance: {q['sniper_conf']:.1f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown(f"""
+                    <div class="q-box" style="height:100px;">
+                        <div class="q-title">🌊 MOMENTUM</div>
+                        <progress value="{q['momentum_h']}" max="100" style="width:100%; height:5px;"></progress>
+                        <div style="font-size:0.7rem; display:flex; justify-content:space-between;"><span>Dom</span><span>Ext</span></div>
+                    </div>""", unsafe_allow_html=True)
+                with c2:
+                    col = "#FF4B4B" if q['upset_risk'] > 30 else "#00FF99"
+                    st.markdown(f"""<div class="q-box" style="height:100px;"><div class="q-title">⚠️ UPSET</div><div style="text-align:center; font-size:1.5rem; font-weight:bold; color:{col};">{q['upset_risk']:.0f}%</div></div>""", unsafe_allow_html=True)
+                
+                st.info(f"Prévision xG : {h['name']} ({q['xg_h']:.2f}) - {a['name']} ({q['xg_a']:.2f})")
 
-    # === AFFICHAGE MODE STANDARD (Restauré) ===
-    elif 'p' in d:
-        p, s, hid, aid = d['p'], d['s'], d['hid'], d['aid']
-        
-        st.markdown(f"""
-        <div class="probs-container">
-            <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div>
-            <div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div>
-            <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.expander("🔎 Voir l'analyse"):
-            st.info(f"**Domicile :** {gen_justif('🏆 Résultat', 'Domicile', h, a)}")
-            st.info(f"**Extérieur :** {gen_justif('🏆 Résultat', 'Extérieur', h, a)}")
-        
-        st.progress(int(max(p)*100))
-        
-        # Graphique
-        st.markdown("### 📊 Comparateur")
-        opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], 
-                "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
-                "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']],
-                "Forme": ["Points", h['form'], a['form'], ['#00FF99', '#00CCFF']]}
-        sel_opt = st.selectbox("Critère", list(opts.keys()), key="graph_sel")
-        dat = opts[sel_opt]
-        df = pd.DataFrame({'Eq': [m['teams']['home']['name'], m['teams']['away']['name']], 'Val': [dat[1], dat[2]]})
-        ch = alt.Chart(df).encode(x=alt.X('Val', axis=alt.Axis(grid=False, title=None)), y=alt.Y('Eq', axis=alt.Axis(title=None, labelColor='white', labelLimit=100)), color=alt.Color('Eq', legend=None, scale=alt.Scale(range=dat[3])))
-        st.altair_chart(alt.layer(ch.mark_rule(size=3), ch.mark_circle(size=120)).properties(height=150, background='transparent').configure_view(stroke=None), use_container_width=True)
-        
-        # Tabs
-        t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
-        with t1:
-            st.write("Simulations (Standard) :")
-            c1, c2, c3 = st.columns(3)
-            if len(s)>0: c1.metric("#1", s[0][0], f"{s[0][1]}x")
-            if len(s)>1: c2.metric("#2", s[1][0], f"{s[1][1]}x")
-            if len(s)>2: c3.metric("#3", s[2][0], f"{s[2][1]}x")
-        with t2:
-            def row(l, v1, v2, u=""): st.markdown(f"<div class='stat-row'><span class='stat-label'>{l}</span><span class='stat-val'>{v1}{u} vs {v2}{u}</span></div>", unsafe_allow_html=True)
-            row("Moy. Buts", f"{h['avg_gf']:.2f}", f"{a['avg_gf']:.2f}")
-            row("Moy. Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
-            row("Clean Sheets", f"{h['cs_rate']:.0f}", f"{a['cs_rate']:.0f}", "%")
-        with t3:
-            filtre = st.radio("Filtre :", ["10 derniers", "5 derniers", "H2H"], horizontal=True)
-            vh, va, msg = h['vol'], a['vol'], "10 derniers."
-            if "5" in filtre: 
-                try: vh = statistics.stdev(h['raw_gf'][:5]); va = statistics.stdev(a['raw_gf'][:5])
-                except: pass
-            elif "H2H" in filtre:
-                h2h = get_h2h_stats(hid, aid)
-                if h2h: vh=h2h['vol']; va=h2h['vol']; msg=f"Sur {h2h['matches']} matchs."
-                else: msg="Pas d'historique valide."
-            c_a, c_b = st.columns(2)
-            c_a.write(f"Dom: **{'ÉLEVÉ' if vh>1.4 else 'Faible'}**"); c_b.write(f"Ext: **{'ÉLEVÉ' if va>1.4 else 'Faible'}**")
-            st.caption(msg)
-        with t4: st.success(f"Confiance: {max(p)*100:.0f}%")
+            # MODE STANDARD
+            elif 'p' in d:
+                p, s, hid, aid = d['p'], d['s'], d['hid'], d['aid']
+                
+                st.markdown(f"""
+                <div class="probs-container">
+                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div>
+                    <div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div>
+                    <div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("🔎 Analyse détaillée"):
+                    st.info(f"**Dom :** {gen_justif('🏆 Résultat', 'Domicile', h, a)}")
+                    st.info(f"**Ext :** {gen_justif('🏆 Résultat', 'Extérieur', h, a)}")
+                
+                st.progress(int(max(p)*100))
+                
+                st.markdown("### 📊 Comparateur")
+                opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], 
+                        "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
+                        "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']]}
+                sel_opt = st.selectbox("Critère", list(opts.keys()), key="graph_sel")
+                dat = opts[sel_opt]
+                df = pd.DataFrame({'Eq': [m['teams']['home']['name'], m['teams']['away']['name']], 'Val': [dat[1], dat[2]]})
+                ch = alt.Chart(df).encode(x=alt.X('Val', axis=alt.Axis(grid=False, title=None)), y=alt.Y('Eq', axis=alt.Axis(title=None, labelColor='white', labelLimit=100)), color=alt.Color('Eq', legend=None, scale=alt.Scale(range=dat[3])))
+                st.altair_chart(alt.layer(ch.mark_rule(size=3), ch.mark_circle(size=120)).properties(height=150, background='transparent').configure_view(stroke=None), use_container_width=True)
+                
+                t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
+                with t1:
+                    c1, c2, c3 = st.columns(3)
+                    if len(s)>0: c1.metric("#1", s[0][0], f"{s[0][1]}x")
+                    if len(s)>1: c2.metric("#2", s[1][0], f"{s[1][1]}x")
+                    if len(s)>2: c3.metric("#3", s[2][0], f"{s[2][1]}x")
+                with t2:
+                    def row(l, v1, v2, u=""): st.markdown(f"<div class='stat-row'><span class='stat-label'>{l}</span><span class='stat-val'>{v1}{u} vs {v2}{u}</span></div>", unsafe_allow_html=True)
+                    row("Moy. Buts", f"{h['avg_gf']:.2f}", f"{a['avg_gf']:.2f}")
+                    row("Moy. Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
+                    row("Clean Sheets", f"{h['cs_rate']:.0f}", f"{a['cs_rate']:.0f}", "%")
+                with t3:
+                    filtre = st.radio("Filtre :", ["10 derniers", "5 derniers", "H2H"], horizontal=True)
+                    vh, va, msg = h['vol'], a['vol'], "10 derniers."
+                    if "5" in filtre: 
+                        try: vh = statistics.stdev(h['raw_gf'][:5]); va = statistics.stdev(a['raw_gf'][:5])
+                        except: pass
+                    elif "H2H" in filtre:
+                        h2h = get_h2h_stats(hid, aid)
+                        if h2h: vh=h2h['vol']; va=h2h['vol']; msg=f"Sur {h2h['matches']} matchs."
+                        else: msg="Pas d'historique."
+                    c_a, c_b = st.columns(2)
+                    c_a.write(f"Dom: **{'ÉLEVÉ' if vh>1.4 else 'Faible'}**"); c_b.write(f"Ext: **{'ÉLEVÉ' if va>1.4 else 'Faible'}**")
+                    st.caption(msg)
+                with t4: st.success(f"Confiance: {max(p)*100:.0f}%")
