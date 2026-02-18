@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V23 (FIX LISTES DÉROULANTES) ---
-st.set_page_config(page_title="Oracle V23", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V24 (BOUTONS JUMEAUX) ---
+st.set_page_config(page_title="Oracle V24", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -22,42 +22,25 @@ st.markdown("""
     /* ==============================================
        FIX CRITIQUE : LISTES DÉROULANTES (SELECTBOX)
        ============================================== */
-    
-    /* 1. La boîte de sélection fermée */
     div[data-baseweb="select"] > div {
         background-color: #1a1c24 !important;
         color: white !important;
         border-color: #333 !important;
     }
-    
-    /* 2. Le texte à l'intérieur de la boîte fermée */
-    div[data-baseweb="select"] span {
-        color: white !important;
-    }
-    
-    /* 3. Le MENU DÉROULANT (La liste qui s'ouvre) - Force Fond Sombre */
+    div[data-baseweb="select"] span { color: white !important; }
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
         background-color: #1a1c24 !important;
         border: 1px solid #333 !important;
     }
-    
-    /* 4. Les OPTIONS individuelles */
     li[role="option"] {
-        background-color: #1a1c24 !important; /* Fond noir */
-        color: white !important;             /* Texte blanc */
+        background-color: #1a1c24 !important;
+        color: white !important;
     }
-    
-    /* 5. Option survolée ou sélectionnée */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
-        background-color: #00FF99 !important; /* Fond vert */
-        color: black !important;              /* Texte noir */
+        background-color: #00FF99 !important;
+        color: black !important;
     }
-    
-    /* 6. L'icône flèche */
-    div[data-baseweb="select"] svg {
-        fill: white !important;
-    }
-
+    div[data-baseweb="select"] svg { fill: white !important; }
     /* ============================================== */
 
     /* SIDEBAR */
@@ -65,7 +48,7 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
     [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
 
-    /* BOUTON QUANTUM */
+    /* BADGE QUANTUM (Une fois activé) */
     .quantum-btn {
         border: 2px solid #00D4FF; background: linear-gradient(90deg, #001133, #004488);
         color: #00D4FF; font-weight: 900; padding: 15px; text-align: center; border-radius: 10px;
@@ -122,7 +105,6 @@ except: model = None; MODEL_LOADED = False
 # --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
-    # 48h Filter
     today = datetime.now().strftime("%Y-%m-%d")
     end = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d") 
     fixtures = []
@@ -257,7 +239,7 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE & LAYOUT PRINCIPAL ---
-st.title("📱 ORACLE V23")
+st.title("📱 ORACLE V24")
 
 # Récupération de TOUS les matchs (48h)
 all_fixtures = get_upcoming_matches()
@@ -290,7 +272,7 @@ else:
     st.error("Aucun match disponible pour les 48h prochaines heures.")
     match_data = None
 
-# --- SIDEBAR (TICKET + QUANTUM) ---
+# --- SIDEBAR (TICKET SEULEMENT) ---
 with st.sidebar:
     st.header("🎟️ TICKET")
     if st.button("🎰 GÉNÉRER", type="primary"):
@@ -314,36 +296,37 @@ with st.sidebar:
                     with c2.popover("💡"): st.info(b['j'])
             idx+=1
 
-    # Bouton Quantum
-    st.markdown("---")
-    st.markdown("### ⚡ ANALYSE EXPERTE")
-    if match_data:
-        if st.button("🧬 QUANTUM SNIPER", key="btn_quantum"):
-            st.session_state.quantum_mode = True
-            st.session_state.ticket_data = None
-            with st.spinner("Moteur Quantique..."):
-                hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
-                hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
-                q_data = get_quantum_analysis(hs, as_)
-                st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "q": q_data}
-    else:
-        st.caption("Sélectionnez un match à droite pour activer le Sniper.")
-
 # --- AFFICHAGE PRINCIPAL ---
 
 if match_data:
     st.markdown("---")
-    if st.button("🚀 ANALYSER CE MATCH", type="primary"):
-        st.session_state.quantum_mode = False 
-        with st.spinner("Chargement..."):
-            hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
-            hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
-            if hs and as_ and model:
-                vec = np.array([[lid, hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
-                p = model.predict_proba(vec)[0]
-                s = sim_score(hs, as_) 
-                st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
+    
+    # --- LES DEUX BOUTONS CÔTE À CÔTE ---
+    c_btn1, c_btn2 = st.columns(2)
+    
+    with c_btn1:
+        if st.button("🚀 ANALYSER", type="primary", use_container_width=True):
+            st.session_state.quantum_mode = False 
+            with st.spinner("Chargement..."):
+                hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
+                hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
+                if hs and as_ and model:
+                    vec = np.array([[lid, hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
+                    p = model.predict_proba(vec)[0]
+                    s = sim_score(hs, as_) 
+                    st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
 
+    with c_btn2:
+        if st.button("🧬 QUANTUM SNIPER", use_container_width=True):
+            st.session_state.quantum_mode = True
+            st.session_state.ticket_data = None
+            with st.spinner("Calcul Quantique..."):
+                hid, aid, lid = match_data['teams']['home']['id'], match_data['teams']['away']['id'], match_data['league']['id']
+                hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
+                q_data = get_quantum_analysis(hs, as_)
+                st.session_state.analyzed_match_data = {"m": match_data, "h": hs, "a": as_, "q": q_data}
+
+    # RÉSULTATS
     if st.session_state.analyzed_match_data:
         d = st.session_state.analyzed_match_data
         if d['m']['fixture']['id'] == match_data['fixture']['id']:
