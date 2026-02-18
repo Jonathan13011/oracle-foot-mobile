@@ -9,41 +9,44 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V17 (STABLE & INTELLIGENTE) ---
-st.set_page_config(page_title="Oracle V17", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V18 (FINAL & READABLE) ---
+st.set_page_config(page_title="Oracle V18", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
     /* FOND GÉNÉRAL & TEXTE */
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
-    p, h1, h2, h3, div, span, li { color: #FFFFFF !important; }
+    p, h1, h2, h3, div, span, li, label { color: #FFFFFF !important; }
+
+    /* ==============================================
+       NOUVEAU : FIX BARRE LATÉRALE (SIDEBAR) LISIBLE
+       ============================================== */
+    [data-testid="stSidebar"] {
+        background-color: #0E1117 !important; /* Fond sombre */
+        border-right: 1px solid #333 !important;
+    }
+    [data-testid="stSidebarUserContent"] h1,
+    [data-testid="stSidebarUserContent"] h2,
+    [data-testid="stSidebarUserContent"] h3 {
+        color: #00FF99 !important; /* Titres en vert néon */
+    }
+    /* Le bouton natif de fermeture de sidebar sera maintenant visible sur fond sombre */
     
+    /* ============================================== */
+
     /* SUPPRESSION MARGES MOBILE */
     @media only screen and (max-width: 640px) {
         .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
         div[data-testid="column"] { padding: 0 !important; }
     }
 
-    /* FIX MENU DÉROULANT (Invisible sur iPhone) */
-    div[data-baseweb="select"] > div {
+    /* FIX MENU DÉROULANT ET POPOVER */
+    div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], li[role="option"] {
         background-color: #1a1c24 !important;
         color: white !important;
         border-color: #333 !important;
     }
-    div[data-baseweb="popover"] {
-        background-color: #1a1c24 !important;
-    }
-    div[data-baseweb="menu"] {
-        background-color: #1a1c24 !important;
-    }
-    li[role="option"] {
-        color: white !important;
-        background-color: #1a1c24 !important; 
-    }
-    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
-        background-color: #00FF99 !important;
-        color: black !important;
-    }
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #00FF99 !important; color: black !important; }
 
     /* HEADER MATCH */
     .match-header {
@@ -55,31 +58,20 @@ st.markdown("""
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
     .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; }
 
-    /* BOITES PROBABILITÉS (Ligne forcée) */
-    .probs-container {
-        display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%;
-    }
-    .prob-box {
-        background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px;
-        width: 32%; padding: 10px 2px; text-align: center;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        position: relative;
-    }
+    /* BOITES PROBABILITÉS */
+    .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
+    .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.7rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
     .prob-value { font-size: 1.3rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; }
     .info-icon { position: absolute; top: 2px; right: 4px; font-size: 0.8rem; cursor: pointer; opacity: 0.7; color: #00FF99 !important; }
 
-    /* RESTE DU DESIGN */
+    /* DESIGN GÉNÉRAL */
     .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; }
     div[data-testid="stSidebarUserContent"] .stButton > button { background: linear-gradient(45deg, #FF4B4B, #FF0000); border: none; font-weight: bold; }
     .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
-    div[data-testid="stMetricValue"] { color: white !important; }
-    div[data-testid="stMetricLabel"] { color: #aaa !important; }
-    
-    /* TABLEAU STATS */
+    div[data-testid="stMetricValue"] { color: white !important; } div[data-testid="stMetricLabel"] { color: #aaa !important; }
     .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
-    .stat-label { color: #aaa; }
-    .stat-val { font-weight: bold; }
+    .stat-label { color: #aaa; } .stat-val { font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,20 +112,17 @@ def get_deep_stats(tid):
         else: res.append("❌")
     try: vol = statistics.stdev(gs)
     except: vol = 0
-    # On stocke les listes brutes pour le filtre "5 derniers"
     return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], 
             "form": pts/len(d), "avg_gf": sum(gs)/len(d), "avg_ga": sum(gc)/len(d), 
             "cs_rate": cs/len(d)*100, "btts_rate": btts/len(d)*100, "draw_rate": dr/len(d)*100, 
-            "vol": vol, "streak": "".join(res[:5]), "total_matches": len(d),
-            "raw_gf": gs, "raw_ga": gc, "raw_res": res}
+            "vol": vol, "streak": "".join(res[:5]), "total_matches": len(d), "raw_gf": gs}
 
 @st.cache_data(ttl=3600)
 def get_h2h_stats(h_id, a_id):
-    # Nouvelle fonction pour l'onglet Discipline
+    # MODIFIÉ V18 : Suppression de "last": "5" pour avoir tout l'historique
     url = "https://v3.football.api-sports.io/fixtures/headtohead"
-    d = requests.get(url, headers=HEADERS, params={"h2h": f"{h_id}-{a_id}", "last": "5"}).json().get('response', [])
+    d = requests.get(url, headers=HEADERS, params={"h2h": f"{h_id}-{a_id}"}).json().get('response', [])
     if not d: return None
-    # Calcul simple de volatilité H2H
     goals = []
     for m in d: goals.append(m['goals']['home'] + m['goals']['away'])
     vol = statistics.stdev(goals) if len(goals) > 1 else 0
@@ -161,7 +150,7 @@ def sim_score(h, a):
         lam_h = max(0.1, (h['avg_gf']+a['avg_ga'])/2)
         lam_a = max(0.1, (a['avg_gf']+h['avg_ga'])/2)
         sims.append(f"{np.random.poisson(lam_h)}-{np.random.poisson(lam_a)}")
-    return Counter(sims).most_common(3) # Renvoie [('1-1', 850), ('1-0', 600)...]
+    return Counter(sims).most_common(3)
 
 def analyze_probs(h, a, p):
     preds = []
@@ -209,7 +198,7 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V17")
+st.title("📱 ORACLE V18")
 
 with st.sidebar:
     st.header("🎟️ TICKET")
@@ -253,7 +242,6 @@ if st.session_state.analyzed_match_data:
     d = st.session_state.analyzed_match_data
     h, a, p, m, s, hid, aid = d['h'], d['a'], d['p'], d['m'], d['s'], d['hid'], d['aid']
     
-    # HEADER FLEX
     st.markdown(f"""
     <div class="match-header">
         <div class="team-box"><img src="{m['teams']['home']['logo']}" class="team-logo"><div class="team-name">{m['teams']['home']['name']}</div></div>
@@ -276,7 +264,6 @@ if st.session_state.analyzed_match_data:
             "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
             "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']],
             "Forme": ["Points", h['form'], a['form'], ['#00FF99', '#00CCFF']]}
-    # Key pour éviter le reset + CSS fixe le style
     sel_opt = st.selectbox("Critère", list(opts.keys()), key="graph_sel")
     dat = opts[sel_opt]
     df = pd.DataFrame({'Eq': [m['teams']['home']['name'], m['teams']['away']['name']], 'Val': [dat[1], dat[2]]})
@@ -285,52 +272,31 @@ if st.session_state.analyzed_match_data:
     
     t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
     with t1:
-        st.write("Résultats des 5000 simulations :")
         c1, c2, c3 = st.columns(3)
         if len(s)>0: c1.metric("#1", s[0][0], f"{s[0][1]} fois")
         if len(s)>1: c2.metric("#2", s[1][0], f"{s[1][1]} fois")
         if len(s)>2: c3.metric("#3", s[2][0], f"{s[2][1]} fois")
     with t2:
-        st.write("#### Données Brutes")
-        # Affichage clair en tableau pour la clarté demandée
-        def row(label, v1, v2, unit=""):
-            st.markdown(f"<div class='stat-row'><span class='stat-label'>{label}</span><span class='stat-val'>{v1}{unit} vs {v2}{unit}</span></div>", unsafe_allow_html=True)
-        row("Moy. Buts Marqués", f"{h['avg_gf']:.2f}", f"{a['avg_gf']:.2f}")
-        row("Moy. Buts Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
-        row("Forme (Points)", f"{h['form']:.1f}", f"{a['form']:.1f}")
+        def row(label, v1, v2, unit=""): st.markdown(f"<div class='stat-row'><span class='stat-label'>{label}</span><span class='stat-val'>{v1}{unit} vs {v2}{unit}</span></div>", unsafe_allow_html=True)
+        row("Moy. Buts", f"{h['avg_gf']:.2f}", f"{a['avg_gf']:.2f}")
+        row("Moy. Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
+        row("Forme", f"{h['form']:.1f}", f"{a['form']:.1f}")
         row("Clean Sheets", f"{h['cs_rate']:.0f}", f"{a['cs_rate']:.0f}", "%")
-        row("Les 2 Marquent", f"{h['btts_rate']:.0f}", f"{a['btts_rate']:.0f}", "%")
     with t3:
-        # Filtre dynamique
         filtre = st.radio("Analyser sur :", ["10 derniers matchs", "5 derniers matchs", "Confrontations (H2H)"], horizontal=True)
-        
-        # Calcul du risque selon le filtre
-        risk_h, risk_a = "N/A", "N/A"
-        vol_h, vol_a = h['vol'], a['vol'] # Par défaut (10 matchs)
-        
+        vol_h, vol_a, msg = h['vol'], a['vol'], "Basé sur les 10 derniers matchs."
         if "5 derniers" in filtre:
-            # On recalcule la volatilité sur les 5 derniers (slice des données brutes)
-            try:
-                vol_h = statistics.stdev(h['raw_gf'][:5])
-                vol_a = statistics.stdev(a['raw_gf'][:5])
+            try: vol_h = statistics.stdev(h['raw_gf'][:5]); vol_a = statistics.stdev(a['raw_gf'][:5]); msg = "Basé sur les 5 derniers matchs."
             except: pass
         elif "Confrontations" in filtre:
             h2h = get_h2h_stats(hid, aid)
-            if h2h:
-                vol_h = h2h['vol']
-                vol_a = h2h['vol'] # H2H commun
-                st.caption(f"Basé sur {h2h['matches']} matchs passés entre eux.")
-            else:
-                st.warning("Aucune confrontation récente.")
-                
-        # Affichage Risque
+            if h2h: vol_h = h2h['vol']; vol_a = h2h['vol']; msg = f"Basé sur {h2h['matches']} confrontations historiques."
+            else: msg = "Aucune confrontation historique trouvée."
+        
         risk_h = "ÉLEVÉ" if vol_h > 1.4 else "Faible"
         risk_a = "ÉLEVÉ" if vol_a > 1.4 else "Faible"
-        
         c_a, c_b = st.columns(2)
-        c_a.write(f"Penalty Dom: **{risk_h}**")
-        c_b.write(f"Penalty Ext: **{risk_a}**")
-        st.progress(min(1.0, (vol_h+vol_a)/4))
-        st.caption("Indice de tension/chaos calculé sur la période choisie.")
+        c_a.write(f"Penalty Dom: **{risk_h}**"); c_b.write(f"Penalty Ext: **{risk_a}**")
+        st.caption(msg)
         
     with t4: st.success(f"Confiance: {max(p)*100:.0f}% {'(Top)' if max(p)>0.65 else '(Moyen)'}")
