@@ -9,78 +9,91 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION MOBILE V16 (DESIGN SUR MESURE) ---
+# --- 1. CONFIGURATION MOBILE V16 (AFFICHAGE FORCÉ) ---
 st.set_page_config(page_title="Oracle Mobile V16", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
-    /* FOND GÉNÉRAL */
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
+    /* FOND GÉNÉRAL & TEXTE BLANC FORCÉ */
+    .stApp { background-color: #0E1117; color: #FFFFFF !important; }
+    p, h1, h2, h3, div, span { color: #FFFFFF !important; }
     
-    /* SUPPRESSION DES MARGES PARASITES SUR MOBILE */
+    /* SUPPRESSION DES MARGES SUR MOBILE */
     @media only screen and (max-width: 640px) {
         .block-container { 
             padding-top: 1rem !important; 
-            padding-left: 0.2rem !important; 
-            padding-right: 0.2rem !important; 
-        }
-        /* Forcer les colonnes à se coller */
-        div[data-testid="column"] {
-            padding: 0 !important;
-        }
-        div[data-testid="stHorizontalBlock"] {
-            gap: 0 !important;
+            padding-left: 0.5rem !important; 
+            padding-right: 0.5rem !important; 
         }
     }
 
-    /* HEADER DU MATCH (HTML FLEXBOX) */
+    /* --- NOUVEAU DESIGN : BOITES DE PROBABILITÉS HTML (ANTI-STACKING) --- */
+    .probs-container {
+        display: flex;
+        flex-direction: row; /* Force la ligne */
+        justify-content: space-between;
+        gap: 5px;
+        margin-bottom: 20px;
+        width: 100%;
+    }
+    .prob-box {
+        background-color: #1a1c24;
+        border: 1px solid #363b4e;
+        border-radius: 8px;
+        width: 32%; /* 3 cases prennent ~96% de l'écran */
+        padding: 10px 2px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .prob-label {
+        font-size: 0.7rem;
+        color: #AAAAAA !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+    .prob-value {
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: #FFFFFF !important;
+        line-height: 1.2;
+    }
+    /* Petite ampoule discrète en haut à droite de la case */
+    .info-icon {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        opacity: 0.7;
+    }
+
+    /* HEADER DU MATCH */
     .match-header {
         display: flex; flex-direction: row; align-items: center; justify-content: space-between; 
         background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333;
     }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
     .team-logo { width: 45px; height: 45px; object-fit: contain; margin-bottom: 3px; }
-    .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white; }
-    .vs-box { width: 20%; text-align: center; color: #00FF99; font-weight: 900; font-size: 1.2rem; }
+    .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
+    .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; }
 
-    /* BOITES DE PROBABILITÉS (CUSTOM HTML) */
-    /* C'est ici qu'on règle le problème d'affichage */
-    .prob-box {
-        background-color: #151920;
-        border-radius: 8px;
-        text-align: center;
-        padding: 8px 2px;
-        margin: 0 2px;
-        height: 100%;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        border-bottom: 2px solid #333;
-    }
-    .prob-label { font-size: 0.7rem; color: #888; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
-    /* La taille de police s'adapte à la largeur de l'écran (6vw) */
-    .prob-value { font-size: 6vw; font-weight: 900; color: white; line-height: 1; }
-    
-    /* BOUTON AMPOULE (Integration Parfaite) */
-    div[data-testid="stPopover"] { width: 100%; display: flex; justify-content: center; }
-    div[data-testid="stPopover"] > button {
-        border: none !important;
-        background: transparent !important;
-        color: #00FF99 !important;
-        padding: 0 !important;
-        font-size: 1rem !important;
-        height: 20px !important;
-        line-height: 1 !important;
-        margin-top: 2px;
-    }
-
-    /* RESTE DU DESIGN */
-    div[data-testid="stPopoverBody"] { background-color: #1a1c24; color: white; border: 1px solid #00FF99; }
+    /* BOUTONS ET INTERFACE */
     .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; }
     div[data-testid="stSidebarUserContent"] .stButton > button { background: linear-gradient(45deg, #FF4B4B, #FF0000); border: none; font-weight: bold; }
-    .ticket-match-title { font-weight: bold; color: #00FF99; margin-top: 10px; border-bottom: 1px solid #333; }
-    .graph-info { background-color: #1a1c24; color: #00FF99; padding: 5px; border-radius: 5px; border-left: 3px solid #00FF99; font-size: 0.75rem; margin-bottom: 5px; }
     
-    /* Supprimer le style par défaut des metrics Streamlit qui posait problème */
-    div[data-testid="stMetric"] { display: none !important; }
+    /* STYLE DES TABS (Pour réparer le bouton Score) */
+    div[data-testid="stMetricValue"] { color: white !important; font-size: 1.5rem !important; }
+    div[data-testid="stMetricLabel"] { color: #AAAAAA !important; }
+    
+    /* TICKET */
+    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
+    .ticket-row { display: flex; justify-content: space-between; align-items: center; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -140,7 +153,13 @@ def gen_justif(type, val, h, a):
     return random.choice(r) if r else "Analyse statistique favorable."
 
 def sim_score(h, a):
-    sims = [f"{np.random.poisson((h['avg_gf']+a['avg_ga'])/2)}-{np.random.poisson((a['avg_gf']+h['avg_ga'])/2)}" for _ in range(5000)]
+    # Simulation plus robuste
+    sims = []
+    for _ in range(5000):
+        # On évite les erreurs de Poisson avec des valeurs negatives
+        lam_h = max(0.1, (h['avg_gf']+a['avg_ga'])/2)
+        lam_a = max(0.1, (a['avg_gf']+h['avg_ga'])/2)
+        sims.append(f"{np.random.poisson(lam_h)}-{np.random.poisson(lam_a)}")
     return Counter(sims).most_common(3)
 
 def analyze_probs(h, a, p):
@@ -234,7 +253,7 @@ if st.session_state.analyzed_match_data:
     d = st.session_state.analyzed_match_data
     h, a, p, m, s = d['h'], d['a'], d['p'], d['m'], d['s']
     
-    # --- HEADER DU MATCH ---
+    # --- HEADER FLEX ---
     st.markdown(f"""
     <div class="match-header">
         <div class="team-box">
@@ -249,35 +268,33 @@ if st.session_state.analyzed_match_data:
     </div>
     """, unsafe_allow_html=True)
     
-    # --- LES 3 CASES PROBABILITÉS (CORRIGÉES) ---
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        st.markdown(f"""
+    # --- PROBABILITÉS (HTML CUSTOM POUR UN ALIGNEMENT PARFAIT) ---
+    # C'est la solution définitive : on n'utilise pas st.columns qui bug sur mobile.
+    # On crée une structure HTML rigide qui force l'alignement horizontal.
+    st.markdown(f"""
+    <div class="probs-container">
         <div class="prob-box">
+            <div class="info-icon">💡</div>
             <div class="prob-label">DOMICILE</div>
             <div class="prob-value">{p[1]*100:.0f}%</div>
         </div>
-        """, unsafe_allow_html=True)
-        with st.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Domicile", h, a))
-
-    with col2:
-        st.markdown(f"""
         <div class="prob-box">
-            <div class="prob-label">NUL</div>
+            <div class="prob-label">MATCH NUL</div>
             <div class="prob-value">{p[0]*100:.0f}%</div>
         </div>
-        """, unsafe_allow_html=True)
-        # Espace vide pour aligner si besoin, ou pas d'ampoule pour le nul ici pour le style
-
-    with col3:
-        st.markdown(f"""
         <div class="prob-box">
+            <div class="info-icon">💡</div>
             <div class="prob-label">EXTÉRIEUR</div>
             <div class="prob-value">{p[2]*100:.0f}%</div>
         </div>
-        """, unsafe_allow_html=True)
-        with st.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Extérieur", h, a))
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ASTUCE : Pour garder la fonctionnalité "Cliquer pour voir l'info",
+    # on ajoute un expander discret juste en dessous
+    with st.expander("🔎 Voir l'analyse des probabilités"):
+        st.info(f"**Domicile :** {gen_justif('🏆 Résultat', 'Domicile', h, a)}")
+        st.info(f"**Extérieur :** {gen_justif('🏆 Résultat', 'Extérieur', h, a)}")
 
     st.progress(int(max(p)*100))
     
@@ -294,16 +311,16 @@ if st.session_state.analyzed_match_data:
     ch = alt.Chart(df).encode(x=alt.X('Val', axis=alt.Axis(grid=False, title=None)), y=alt.Y('Eq', axis=alt.Axis(title=None, labelColor='white', labelLimit=100)), color=alt.Color('Eq', legend=None, scale=alt.Scale(range=dat[3])))
     st.altair_chart(alt.layer(ch.mark_rule(size=3), ch.mark_circle(size=120)).properties(height=150, background='transparent').configure_view(stroke=None), use_container_width=True)
     
-    # --- TABS (DISCIPLINE RESTAURÉE) ---
+    # --- TABS REPARÉS ---
     t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
     with t1:
+        st.write("Scénarios les plus probables :")
         c1, c2, c3 = st.columns(3)
         if len(s)>0: c1.metric("#1", s[0][0])
         if len(s)>1: c2.metric("#2", s[1][0])
         if len(s)>2: c3.metric("#3", s[2][0])
+        if not s: st.warning("Données insuffisantes pour simuler.")
+        
     with t2: st.info(f"**DOM:** CS {h['cs_rate']:.0f}% | BTTS {h['btts_rate']:.0f}%"); st.info(f"**EXT:** CS {a['cs_rate']:.0f}% | BTTS {a['btts_rate']:.0f}%")
-    with t3: 
-        st.write("#### Risque Penalty / Cartons")
-        st.write(f"Domicile : **{'ÉLEVÉ' if h['vol']>1.4 else 'Faible'}** (Volatilité: {h['vol']:.2f})")
-        st.write(f"Extérieur : **{'ÉLEVÉ' if a['vol']>1.4 else 'Faible'}** (Volatilité: {a['vol']:.2f})")
+    with t3: st.write(f"Penalty DOM: **{'ÉLEVÉ' if h['vol']>1.4 else 'Faible'}**"); st.write(f"Penalty EXT: **{'ÉLEVÉ' if a['vol']>1.4 else 'Faible'}**")
     with t4: st.success(f"Confiance: {max(p)*100:.0f}% {'(Top)' if max(p)>0.65 else '(Moyen)'}")
