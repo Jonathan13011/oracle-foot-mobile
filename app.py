@@ -9,85 +9,78 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION MOBILE V15 (FORCE HORIZONTAL) ---
-st.set_page_config(page_title="Oracle Mobile V15", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION MOBILE V16 (DESIGN SUR MESURE) ---
+st.set_page_config(page_title="Oracle Mobile V16", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
     /* FOND GÉNÉRAL */
     .stApp { background-color: #0E1117; color: #FFFFFF; }
     
-    /* ==============================================
-       CSS SPÉCIAL IPHONE (Mobile Fixes) 
-       ============================================== */
-    
+    /* SUPPRESSION DES MARGES PARASITES SUR MOBILE */
     @media only screen and (max-width: 640px) {
-        /* 1. FORCER L'ALIGNEMENT HORIZONTAL DES METRICS (Le Fix Ultime) */
-        div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important; /* Force la ligne */
-            flex-wrap: nowrap !important;   /* Interdit le retour à la ligne */
-            gap: 4px !important;            /* Petit espace entre les cases */
-            overflow-x: hidden !important;  /* Empêche le scroll */
+        .block-container { 
+            padding-top: 1rem !important; 
+            padding-left: 0.2rem !important; 
+            padding-right: 0.2rem !important; 
         }
-        
+        /* Forcer les colonnes à se coller */
         div[data-testid="column"] {
-            width: 33% !important;          /* Force 1/3 de largeur */
-            flex: 1 1 auto !important;
-            min-width: 0px !important;      /* Autorise le rétrécissement max */
             padding: 0 !important;
         }
-
-        /* 2. RÉDUIRE LA TAILLE DU TEXTE POUR QUE ÇA RENTRE */
-        div[data-testid="stMetricValue"] { font-size: 1.1rem !important; }
-        div[data-testid="stMetricLabel"] { font-size: 0.6rem !important; }
-        
-        /* 3. MARGES */
-        .block-container { padding-top: 1rem !important; padding-left: 5px !important; padding-right: 5px !important; }
+        div[data-testid="stHorizontalBlock"] {
+            gap: 0 !important;
+        }
     }
 
-    /* DESIGN DES METRICS */
-    div[data-testid="stMetric"] {
-        background-color: #1a1c24 !important; 
-        border: 1px solid #363b4e;
-        padding: 5px 2px !important; 
-        border-radius: 8px; 
+    /* HEADER DU MATCH (HTML FLEXBOX) */
+    .match-header {
+        display: flex; flex-direction: row; align-items: center; justify-content: space-between; 
+        background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333;
+    }
+    .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
+    .team-logo { width: 45px; height: 45px; object-fit: contain; margin-bottom: 3px; }
+    .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white; }
+    .vs-box { width: 20%; text-align: center; color: #00FF99; font-weight: 900; font-size: 1.2rem; }
+
+    /* BOITES DE PROBABILITÉS (CUSTOM HTML) */
+    /* C'est ici qu'on règle le problème d'affichage */
+    .prob-box {
+        background-color: #151920;
+        border-radius: 8px;
         text-align: center;
-        min-height: 70px;
-        display: flex; flex-direction: column; justify-content: center;
+        padding: 8px 2px;
+        margin: 0 2px;
+        height: 100%;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        border-bottom: 2px solid #333;
     }
-    div[data-testid="stMetricLabel"] { color: #AAAAAA !important; font-weight: bold; }
-    div[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 800; }
-
-    /* BOUTON AMPOULE (VRAIE ICÔNE CLIQUABLE SANS FOND) */
+    .prob-label { font-size: 0.7rem; color: #888; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+    /* La taille de police s'adapte à la largeur de l'écran (6vw) */
+    .prob-value { font-size: 6vw; font-weight: 900; color: white; line-height: 1; }
+    
+    /* BOUTON AMPOULE (Integration Parfaite) */
+    div[data-testid="stPopover"] { width: 100%; display: flex; justify-content: center; }
     div[data-testid="stPopover"] > button {
         border: none !important;
         background: transparent !important;
         color: #00FF99 !important;
         padding: 0 !important;
         font-size: 1rem !important;
-        height: 25px !important;
-        width: 100% !important;
-        margin-top: -5px;
+        height: 20px !important;
+        line-height: 1 !important;
+        margin-top: 2px;
     }
-    div[data-testid="stPopover"] > button:hover { color: #FFFFFF !important; }
 
-    /* HEADER DU MATCH (HTML FLEXBOX) */
-    .match-header {
-        display: flex; flex-direction: row; align-items: center; justify-content: space-between; 
-        background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #333;
-    }
-    .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
-    .team-logo { width: 40px; height: 40px; object-fit: contain; margin-bottom: 3px; }
-    .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white; word-wrap: break-word; }
-    .vs-box { width: 20%; text-align: center; color: #00FF99; font-weight: 900; font-size: 1.2rem; }
-
-    /* GENERAL */
+    /* RESTE DU DESIGN */
     div[data-testid="stPopoverBody"] { background-color: #1a1c24; color: white; border: 1px solid #00FF99; }
     .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; }
     div[data-testid="stSidebarUserContent"] .stButton > button { background: linear-gradient(45deg, #FF4B4B, #FF0000); border: none; font-weight: bold; }
     .ticket-match-title { font-weight: bold; color: #00FF99; margin-top: 10px; border-bottom: 1px solid #333; }
-    .ticket-row { display: flex; justify-content: space-between; align-items: center; }
     .graph-info { background-color: #1a1c24; color: #00FF99; padding: 5px; border-radius: 5px; border-left: 3px solid #00FF99; font-size: 0.75rem; margin-bottom: 5px; }
+    
+    /* Supprimer le style par défaut des metrics Streamlit qui posait problème */
+    div[data-testid="stMetric"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -198,7 +191,7 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V15")
+st.title("📱 ORACLE V16")
 
 with st.sidebar:
     st.header("🎟️ TICKET")
@@ -215,10 +208,9 @@ with st.sidebar:
             for i in items:
                 b = i['b']
                 icon = "⚖️" if "Nul" in b['v'] else ("🔒" if "-2.5" in b['v'] else ("🥅" if "BTTS" in b['v'] else "🔸"))
-                with st.container():
-                    c1, c2 = st.columns([0.85, 0.15])
-                    c1.markdown(f"<div class='ticket-row'><span>{icon} {b['t']} : <b>{b['v']}</b></span></div>", unsafe_allow_html=True)
-                    with c2.popover("💡"): st.info(b['j'])
+                c1, c2 = st.columns([0.85, 0.15])
+                c1.markdown(f"{icon} {b['t']} : **{b['v']}**")
+                with c2.popover("💡"): st.info(b['j'])
             idx+=1
 
     st.header("🔍 Match")
@@ -242,7 +234,7 @@ if st.session_state.analyzed_match_data:
     d = st.session_state.analyzed_match_data
     h, a, p, m, s = d['h'], d['a'], d['p'], d['m'], d['s']
     
-    # HEADER HTML FLEXBOX
+    # --- HEADER DU MATCH ---
     st.markdown(f"""
     <div class="match-header">
         <div class="team-box">
@@ -257,23 +249,39 @@ if st.session_state.analyzed_match_data:
     </div>
     """, unsafe_allow_html=True)
     
-    # METRICS HORIZONTALES FORCÉES
-    m1, m2, m3 = st.columns(3)
+    # --- LES 3 CASES PROBABILITÉS (CORRIGÉES) ---
+    col1, col2, col3 = st.columns([1, 1, 1])
     
-    with m1:
-        st.metric("DOM", f"{p[1]*100:.0f}%")
+    with col1:
+        st.markdown(f"""
+        <div class="prob-box">
+            <div class="prob-label">DOMICILE</div>
+            <div class="prob-value">{p[1]*100:.0f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
         with st.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Domicile", h, a))
-        
-    with m2:
-        st.metric("NUL", f"{p[0]*100:.0f}%")
-        
-    with m3:
-        st.metric("EXT", f"{p[2]*100:.0f}%")
+
+    with col2:
+        st.markdown(f"""
+        <div class="prob-box">
+            <div class="prob-label">NUL</div>
+            <div class="prob-value">{p[0]*100:.0f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+        # Espace vide pour aligner si besoin, ou pas d'ampoule pour le nul ici pour le style
+
+    with col3:
+        st.markdown(f"""
+        <div class="prob-box">
+            <div class="prob-label">EXTÉRIEUR</div>
+            <div class="prob-value">{p[2]*100:.0f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
         with st.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Extérieur", h, a))
 
     st.progress(int(max(p)*100))
     
-    # GRAPHIQUE
+    # --- GRAPHIQUE ---
     st.markdown("### 📊 Comparateur")
     opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], 
             "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
@@ -286,7 +294,7 @@ if st.session_state.analyzed_match_data:
     ch = alt.Chart(df).encode(x=alt.X('Val', axis=alt.Axis(grid=False, title=None)), y=alt.Y('Eq', axis=alt.Axis(title=None, labelColor='white', labelLimit=100)), color=alt.Color('Eq', legend=None, scale=alt.Scale(range=dat[3])))
     st.altair_chart(alt.layer(ch.mark_rule(size=3), ch.mark_circle(size=120)).properties(height=150, background='transparent').configure_view(stroke=None), use_container_width=True)
     
-    # TABS (AVEC DISCIPLINE RESTAURÉE)
+    # --- TABS (DISCIPLINE RESTAURÉE) ---
     t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
     with t1:
         c1, c2, c3 = st.columns(3)
@@ -295,7 +303,7 @@ if st.session_state.analyzed_match_data:
         if len(s)>2: c3.metric("#3", s[2][0])
     with t2: st.info(f"**DOM:** CS {h['cs_rate']:.0f}% | BTTS {h['btts_rate']:.0f}%"); st.info(f"**EXT:** CS {a['cs_rate']:.0f}% | BTTS {a['btts_rate']:.0f}%")
     with t3: 
-        st.write("#### Analyse des Risques")
-        st.write(f"Penalty DOM: **{'ÉLEVÉ' if h['vol']>1.4 else 'Faible'}**")
-        st.write(f"Penalty EXT: **{'ÉLEVÉ' if a['vol']>1.4 else 'Faible'}**")
+        st.write("#### Risque Penalty / Cartons")
+        st.write(f"Domicile : **{'ÉLEVÉ' if h['vol']>1.4 else 'Faible'}** (Volatilité: {h['vol']:.2f})")
+        st.write(f"Extérieur : **{'ÉLEVÉ' if a['vol']>1.4 else 'Faible'}** (Volatilité: {a['vol']:.2f})")
     with t4: st.success(f"Confiance: {max(p)*100:.0f}% {'(Top)' if max(p)>0.65 else '(Moyen)'}")
