@@ -250,4 +250,55 @@ if st.session_state.analyzed_match_data:
     <div style="display: flex; align-items: center; justify-content: space-around; margin-bottom: 20px; background: #1a1c24; padding: 15px; border-radius: 15px;">
         <div style="text-align: center; flex: 1;">
             <img src="{m['teams']['home']['logo']}" width="60" style="margin-bottom: 5px;">
-Écrire à 'Jonathan Turcan
+            <h3 style="margin:0; font-size: 1rem;">{m['teams']['home']['name']}</h3>
+        </div>
+        <div style="text-align: center; flex: 0.5;">
+            <h2 style="color: #00FF99; margin:0; font-weight: bold;">VS</h2>
+        </div>
+        <div style="text-align: center; flex: 1;">
+            <img src="{m['teams']['away']['logo']}" width="60" style="margin-bottom: 5px;">
+            <h3 style="margin:0; font-size: 1rem;">{m['teams']['away']['name']}</h3>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # --- METRICS HORIZONTALES (FIX PHOTO 1 SUITE) ---
+    # Le CSS global force déjà l'alignement horizontal.
+    # On utilise des colonnes simples. L'ampoule est gérée par le CSS.
+    m1, m2, m3 = st.columns(3)
+    
+    with m1:
+        c_val, c_bulb = st.columns([0.8, 0.2])
+        c_val.metric("DOM", f"{p[1]*100:.0f}%")
+        with c_bulb.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Domicile", h, a))
+        
+    with m2:
+        st.metric("NUL", f"{p[0]*100:.0f}%")
+        
+    with m3:
+        c_val, c_bulb = st.columns([0.8, 0.2])
+        c_val.metric("EXT", f"{p[2]*100:.0f}%")
+        with c_bulb.popover("💡", use_container_width=True): st.info(gen_justif("🏆 Résultat", "Extérieur", h, a))
+
+    st.progress(int(max(p)*100))
+    
+    # --- GRAPHIQUE ---
+    st.markdown("### 📊 Comparateur")
+    opts = {"Puissance Offensive": ["Buts", h['avg_gf'], a['avg_gf'], ['#00FF99', '#00CCFF']], 
+            "Solidité Défensive": ["Encaissés", h['avg_ga'], a['avg_ga'], ['#FF4B4B', '#FF8888']],
+            "Volatilité": ["Chaos", h['vol'], a['vol'], ['#FFA500', '#FFD700']]}
+    sel_opt = st.selectbox("Critère", list(opts.keys()))
+    dat = opts[sel_opt]
+    df = pd.DataFrame({'Eq': [m['teams']['home']['name'], m['teams']['away']['name']], 'Val': [dat[1], dat[2]]})
+    ch = alt.Chart(df).encode(x=alt.X('Val', axis=alt.Axis(grid=False, title=None)), y=alt.Y('Eq', axis=alt.Axis(title=None, labelColor='white', labelLimit=100)), color=alt.Color('Eq', legend=None, scale=alt.Scale(range=dat[3])))
+    st.altair_chart(alt.layer(ch.mark_rule(size=3), ch.mark_circle(size=120)).properties(height=150, background='transparent').configure_view(stroke=None), use_container_width=True)
+    
+    # --- TABS ---
+    t1, t2, t3 = st.tabs(["🔮 Score", "⚡ Stats", "💰 Avis"])
+    with t1:
+        c1, c2, c3 = st.columns(3)
+        if len(s)>0: c1.metric("#1", s[0][0])
+        if len(s)>1: c2.metric("#2", s[1][0])
+        if len(s)>2: c3.metric("#3", s[2][0])
+    with t2: st.info(f"**DOM:** CS {h['cs_rate']:.0f}% | BTTS {h['btts_rate']:.0f}%"); st.info(f"**EXT:** CS {a['cs_rate']:.0f}% | BTTS {a['btts_rate']:.0f}%")
+    with t3: st.success(f"Confiance: {max(p)*100:.0f}% {'(Top)' if max(p)>0.65 else '(Moyen)'}")
