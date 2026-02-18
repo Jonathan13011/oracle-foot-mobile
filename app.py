@@ -9,8 +9,8 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V18 (FINAL & READABLE) ---
-st.set_page_config(page_title="Oracle V18", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V19 (STABLE & SECURE) ---
+st.set_page_config(page_title="Oracle V19", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -18,21 +18,29 @@ st.markdown("""
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, li, label { color: #FFFFFF !important; }
 
-    /* ==============================================
-       NOUVEAU : FIX BARRE LATÉRALE (SIDEBAR) LISIBLE
-       ============================================== */
+    /* BARRE LATÉRALE (SIDEBAR) & BOUTON D'OUVERTURE */
     [data-testid="stSidebar"] {
-        background-color: #0E1117 !important; /* Fond sombre */
+        background-color: #0E1117 !important;
         border-right: 1px solid #333 !important;
     }
+    /* C'est ici qu'on rend le bouton d'ouverture visible ! */
+    [data-testid="stSidebarCollapsedControl"] {
+        color: #FFFFFF !important;
+        background-color: #1a1c24 !important;
+        border-radius: 5px !important;
+        border: 1px solid #333 !important;
+        padding: 2px !important;
+    }
+    [data-testid="stSidebarCollapsedControl"]:hover {
+        color: #00FF99 !important;
+        border-color: #00FF99 !important;
+    }
+    
     [data-testid="stSidebarUserContent"] h1,
     [data-testid="stSidebarUserContent"] h2,
     [data-testid="stSidebarUserContent"] h3 {
-        color: #00FF99 !important; /* Titres en vert néon */
+        color: #00FF99 !important;
     }
-    /* Le bouton natif de fermeture de sidebar sera maintenant visible sur fond sombre */
-    
-    /* ============================================== */
 
     /* SUPPRESSION MARGES MOBILE */
     @media only screen and (max-width: 640px) {
@@ -119,14 +127,28 @@ def get_deep_stats(tid):
 
 @st.cache_data(ttl=3600)
 def get_h2h_stats(h_id, a_id):
-    # MODIFIÉ V18 : Suppression de "last": "5" pour avoir tout l'historique
+    # CORRECTION CRASH V19 : On filtre pour ne garder que les matchs terminés avec un score
     url = "https://v3.football.api-sports.io/fixtures/headtohead"
     d = requests.get(url, headers=HEADERS, params={"h2h": f"{h_id}-{a_id}"}).json().get('response', [])
     if not d: return None
+    
     goals = []
-    for m in d: goals.append(m['goals']['home'] + m['goals']['away'])
+    matches_played = 0
+    
+    for m in d:
+        # Vérification stricte : le match doit être terminé (FT, AET, PEN)
+        if m['fixture']['status']['short'] in ['FT', 'AET', 'PEN']:
+            # On vérifie que les buts ne sont pas "None"
+            g_home = m['goals']['home']
+            g_away = m['goals']['away']
+            if g_home is not None and g_away is not None:
+                goals.append(g_home + g_away)
+                matches_played += 1
+                
+    if not goals: return None # Pas de match valide trouvé
+    
     vol = statistics.stdev(goals) if len(goals) > 1 else 0
-    return {"vol": vol, "matches": len(d), "avg_goals": sum(goals)/len(d) if goals else 0}
+    return {"vol": vol, "matches": matches_played, "avg_goals": sum(goals)/len(goals)}
 
 # --- INTELLIGENCE ---
 def gen_justif(type, val, h, a):
@@ -198,7 +220,7 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V18")
+st.title("📱 ORACLE V19")
 
 with st.sidebar:
     st.header("🎟️ TICKET")
@@ -272,6 +294,7 @@ if st.session_state.analyzed_match_data:
     
     t1, t2, t3, t4 = st.tabs(["🔮 Score", "⚡ Stats", "🛑 Discipline", "💰 Conseil"])
     with t1:
+        st.write("Résultats des 5000 simulations :")
         c1, c2, c3 = st.columns(3)
         if len(s)>0: c1.metric("#1", s[0][0], f"{s[0][1]} fois")
         if len(s)>1: c2.metric("#2", s[1][0], f"{s[1][1]} fois")
@@ -285,13 +308,17 @@ if st.session_state.analyzed_match_data:
     with t3:
         filtre = st.radio("Analyser sur :", ["10 derniers matchs", "5 derniers matchs", "Confrontations (H2H)"], horizontal=True)
         vol_h, vol_a, msg = h['vol'], a['vol'], "Basé sur les 10 derniers matchs."
+        
         if "5 derniers" in filtre:
             try: vol_h = statistics.stdev(h['raw_gf'][:5]); vol_a = statistics.stdev(a['raw_gf'][:5]); msg = "Basé sur les 5 derniers matchs."
             except: pass
         elif "Confrontations" in filtre:
             h2h = get_h2h_stats(hid, aid)
-            if h2h: vol_h = h2h['vol']; vol_a = h2h['vol']; msg = f"Basé sur {h2h['matches']} confrontations historiques."
-            else: msg = "Aucune confrontation historique trouvée."
+            if h2h: 
+                vol_h = h2h['vol']; vol_a = h2h['vol']
+                msg = f"Basé sur {h2h['matches']} confrontations historiques (Matchs terminés)."
+            else: 
+                msg = "Aucune confrontation historique valide ou récente trouvée."
         
         risk_h = "ÉLEVÉ" if vol_h > 1.4 else "Faible"
         risk_a = "ÉLEVÉ" if vol_a > 1.4 else "Faible"
