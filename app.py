@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V20 (QUANTUM EDITION) ---
-st.set_page_config(page_title="Oracle V20", layout="wide", page_icon="🧬")
+# --- 1. CONFIGURATION V21 (QUANTUM MAX) ---
+st.set_page_config(page_title="Oracle V21", layout="wide", page_icon="🧬")
 
 st.markdown("""
 <style>
@@ -19,23 +19,19 @@ st.markdown("""
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, li, label, h4, h5, h6 { color: #FFFFFF !important; }
 
-    /* SIDEBAR & BOUTONS */
+    /* SIDEBAR */
     [data-testid="stSidebar"] { background-color: #0E1117 !important; border-right: 1px solid #333 !important; }
     [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
     [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
 
-    /* BOUTON QUANTUM (NOUVEAU) */
+    /* BOUTON QUANTUM (DESIGN CYBERPUNK) */
     .quantum-btn {
-        border: 2px solid #00D4FF !important;
-        background: linear-gradient(90deg, #00D4FF, #0055FF) !important;
-        color: white !important;
-        font-weight: 900 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        box-shadow: 0 0 15px rgba(0, 212, 255, 0.4) !important;
+        border: 2px solid #00D4FF; background: linear-gradient(90deg, #001133, #004488);
+        color: #00D4FF; font-weight: 900; padding: 15px; text-align: center; border-radius: 10px;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); margin-bottom: 20px;
     }
-    
-    /* MOBILE FIXES */
+
+    /* MOBILE FIXES (V19 BASE) */
     @media only screen and (max-width: 640px) {
         .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
         div[data-testid="column"] { padding: 0 !important; }
@@ -51,25 +47,26 @@ st.markdown("""
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
     .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; }
 
-    /* PROBS CONTAINER */
+    /* PROBS STANDARD */
     .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
     .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; }
     .info-icon { position: absolute; top: 1px; right: 2px; font-size: 0.8rem; cursor: pointer; color: #00FF99 !important; }
 
-    /* QUANTUM STATS STYLES */
-    .q-stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
-    .q-label { color: #00D4FF !important; font-weight: bold; }
-    .q-val { color: white; font-weight: bold; }
-    .fair-odd { color: #FFA500 !important; font-weight: 900; font-size: 1.1rem; }
+    /* QUANTUM STATS */
+    .q-box { background: #0b1016; border: 1px solid #00D4FF; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+    .q-title { color: #00D4FF !important; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .q-val-big { font-size: 1.5rem; font-weight: 900; color: white !important; }
+    .q-desc { font-size: 0.7rem; color: #888 !important; }
 
     /* GENERAL */
     div[data-baseweb="select"] > div, div[data-baseweb="popover"] { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; width: 100%; }
     div[data-testid="stSidebarUserContent"] .stButton > button { border: none; font-weight: bold; }
     .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
-    .ticket-row { display: flex; justify-content: space-between; align-items: center; }
+    .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
+    .stat-label { color: #aaa; } .stat-val { font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -77,7 +74,7 @@ API_KEY = "4d3c1dbf76600a937722ff6425d450ee"
 HEADERS = {'x-rapidapi-host': "v3.football.api-sports.io", 'x-rapidapi-key': API_KEY}
 LEAGUE_IDS = [2, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323]
 
-# Session States
+# STATES
 if 'analyzed_match_data' not in st.session_state: st.session_state.analyzed_match_data = None
 if 'ticket_data' not in st.session_state: st.session_state.ticket_data = None
 if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
@@ -100,11 +97,17 @@ def get_upcoming_matches():
 def get_deep_stats(tid):
     d = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"team": str(tid), "last": "10", "status": "FT"}).json().get('response', [])
     if not d: return None
-    gs, gc, ht, btts, pts, cs, dr, res = [], [], 0, 0, 0, 0, 0, []
+    gs, gc, ht, btts, pts, cs, dr, res, ht_w = [], [], 0, 0, 0, 0, 0, [], 0
     for m in d:
         h = m['teams']['home']['id'] == tid
         gf, ga = (m['goals']['home'] if h else m['goals']['away']) or 0, (m['goals']['away'] if h else m['goals']['home']) or 0
         gs.append(gf); gc.append(ga)
+        # HT Check
+        try:
+            hf, ha = (m['score']['halftime']['home'] if h else m['score']['halftime']['away']) or 0, (m['score']['halftime']['away'] if h else m['score']['halftime']['home']) or 0
+            if hf > ha: ht_w += 1
+        except: pass
+        
         if gf>0 and ga>0: btts+=1
         if ga==0: cs+=1
         if gf>ga: pts+=3; res.append("✅")
@@ -114,7 +117,7 @@ def get_deep_stats(tid):
     except: vol = 0
     return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], 
             "form": pts/len(d), "avg_gf": sum(gs)/len(d), "avg_ga": sum(gc)/len(d), 
-            "cs_rate": cs/len(d)*100, "btts_rate": btts/len(d)*100, "draw_rate": dr/len(d)*100, 
+            "cs_rate": cs/len(d)*100, "btts_rate": btts/len(d)*100, "draw_rate": dr/len(d)*100, "ht_win_rate": ht_w/len(d)*100,
             "vol": vol, "streak": "".join(res[:5]), "total_matches": len(d), "raw_gf": gs}
 
 @st.cache_data(ttl=3600)
@@ -129,49 +132,74 @@ def get_h2h_stats(h_id, a_id):
     if not goals: return None
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
-# --- INTELLIGENCE V20 (QUANTUM ENGINE) ---
-def calculate_poisson_probs(avg_h, avg_a):
-    # Calcul des probabilités exactes avec Poisson (0-0, 1-0, etc.)
-    probs = {}
+# --- FONCTION SIMULATION (RESTAURÉE POUR MODE STANDARD) ---
+def sim_score(h, a):
+    # La fonction standard que tu avais aimée
+    sims = []
+    for _ in range(5000):
+        lam_h = max(0.1, (h['avg_gf']+a['avg_ga'])/2)
+        lam_a = max(0.1, (a['avg_gf']+h['avg_ga'])/2)
+        sims.append(f"{np.random.poisson(lam_h)}-{np.random.poisson(lam_a)}")
+    return Counter(sims).most_common(3)
+
+# --- INTELLIGENCE V21 (QUANTUM ENGINE) ---
+def get_quantum_analysis(h, a):
+    # 1. Calculs de base
+    lg_avg = 1.35
+    xg_h = (h['avg_gf'] / lg_avg) * (a['avg_ga'] / lg_avg) * lg_avg * 1.15
+    xg_a = (a['avg_gf'] / lg_avg) * (h['avg_ga'] / lg_avg) * lg_avg
+    
+    # 2. Sniper Exact Score (Le plus probable de la matrice)
+    best_score = "0-0"
+    best_prob = 0
+    upset_prob = 0
+    fav_prob = 0
+    
     for i in range(6):
         for j in range(6):
-            p = (math.exp(-avg_h) * (avg_h**i) / math.factorial(i)) * \
-                (math.exp(-avg_a) * (avg_a**j) / math.factorial(j))
-            probs[f"{i}-{j}"] = p
-    
-    win_h = sum([p for s, p in probs.items() if int(s[0]) > int(s[2])])
-    draw = sum([p for s, p in probs.items() if int(s[0]) == int(s[2])])
-    win_a = sum([p for s, p in probs.items() if int(s[0]) < int(s[2])])
-    return win_h, draw, win_a, probs
+            p = (math.exp(-xg_h) * (xg_h**i) / math.factorial(i)) * (math.exp(-xg_a) * (xg_a**j) / math.factorial(j))
+            if p > best_prob:
+                best_prob = p
+                best_score = f"{i}-{j}"
+            # Upset calc (Si outsider gagne)
+            if xg_h > xg_a and j > i: upset_prob += p
+            elif xg_a > xg_h and i > j: upset_prob += p
+            # Fav calc
+            if xg_h > xg_a and i > j: fav_prob += p
+            elif xg_a > xg_h and j > i: fav_prob += p
 
-def get_quantum_analysis(h, a):
-    # 1. Force Attaque/Défense (Modèle simplifié Dixon-Coles)
-    # On suppose une moyenne ligue approx de 1.35 buts/match
-    lg_avg = 1.35
+    # 3. Momentum (Forme récente pondérée)
+    # On donne plus de poids aux derniers matchs. ✅=3, ➖=1, ❌=0
+    def calc_mom(streak):
+        score = 0
+        weights = [5, 4, 3, 2, 1] # Plus récent = plus important
+        for i, char in enumerate(streak):
+            val = 3 if char == "✅" else (1 if char == "➖" else 0)
+            score += val * weights[i]
+        return score / 45 * 100 # Normalisé sur 100
     
-    att_h = h['avg_gf'] / lg_avg
-    def_h = h['avg_ga'] / lg_avg
-    att_a = a['avg_gf'] / lg_avg
-    def_a = a['avg_ga'] / lg_avg
+    mom_h = calc_mom(h['streak'])
+    mom_a = calc_mom(a['streak'])
+    momentum_diff = mom_h - mom_a
+
+    # 4. HT Master (Prédiction Mi-temps)
+    ht_pred = "Nul MT"
+    if h['ht_win_rate'] > 45 and a['ht_win_rate'] < 20: ht_pred = f"1/N (MT)"
+    elif a['ht_win_rate'] > 45 and h['ht_win_rate'] < 20: ht_pred = f"N/2 (MT)"
     
-    # 2. Expected Goals (xG) prédictifs
-    xg_h = att_h * def_a * lg_avg * 1.15 # 1.15 = Avantage domicile
-    xg_a = att_a * def_h * lg_avg
-    
-    # 3. Probabilités Poisson
-    ph, pd, pa, score_matrix = calculate_poisson_probs(xg_h, xg_a)
-    
-    # 4. Fair Odds (Cotes Équitables)
-    odd_h = 1/ph if ph > 0 else 99
-    odd_d = 1/pd if pd > 0 else 99
-    odd_a = 1/pa if pa > 0 else 99
-    
+    # 5. Value Index (Alpha)
+    # Combine la certitude mathématique et la forme
+    alpha = (fav_prob * 100) + (abs(momentum_diff) * 0.2)
+    alpha = min(99, alpha)
+
     return {
-        "xg_h": xg_h, "xg_a": xg_a,
-        "prob_h": ph, "prob_d": pd, "prob_a": pa,
-        "odd_h": odd_h, "odd_d": odd_d, "odd_a": odd_a,
-        "att_power_h": att_h, "def_wall_h": 1/def_h if def_h > 0 else 2,
-        "att_power_a": att_a, "def_wall_a": 1/def_a if def_a > 0 else 2
+        "sniper_score": best_score,
+        "sniper_conf": best_prob * 100,
+        "momentum_h": mom_h, "momentum_a": mom_a,
+        "upset_risk": upset_prob * 100,
+        "ht_pred": ht_pred,
+        "alpha_index": alpha,
+        "xg_h": xg_h, "xg_a": xg_a
     }
 
 # --- FONCTIONS STANDARDS ---
@@ -230,7 +258,7 @@ def gen_ticket(fix):
     return grouped
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V20")
+st.title("📱 ORACLE V21")
 
 with st.sidebar:
     st.header("🎟️ TICKET")
@@ -240,7 +268,7 @@ with st.sidebar:
         else:
             with st.spinner("Analyse..."): 
                 st.session_state.ticket_data = gen_ticket(fix)
-                st.session_state.quantum_mode = False # Reset quantum view
+                st.session_state.quantum_mode = False # Reset
 
     if st.session_state.ticket_data and not st.session_state.quantum_mode:
         st.success("✅ PRÊT !")
@@ -263,37 +291,39 @@ with st.sidebar:
         sel = st.selectbox("Rencontre", list(m_map.keys()))
         m_data = m_map[sel]
 
-    # --- LE BOUTON QUANTUM SNIPER ---
+    # BOUTON QUANTUM SNIPER
     st.markdown("---")
     if st.button("🧬 QUANTUM SNIPER", key="btn_quantum"):
         st.session_state.quantum_mode = True
-        st.session_state.ticket_data = None # Hide ticket
-        
-        with st.spinner("Calcul Quantique & xG..."):
+        st.session_state.ticket_data = None
+        with st.spinner("Activation du Moteur Quantique..."):
             hid, aid, lid = m_data['teams']['home']['id'], m_data['teams']['away']['id'], m_data['league']['id']
             hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
-            
-            # Calculs inédits
+            # Calculs Quantum
             q_data = get_quantum_analysis(hs, as_)
             st.session_state.analyzed_match_data = {"m": m_data, "h": hs, "a": as_, "q": q_data}
 
 # --- AFFICHAGE PRINCIPAL ---
 
-# 1. MODE STANDARD (BOUTON ANALYSER CLASSIQUE)
-if st.button("🚀 ANALYSER", type="primary") and not st.session_state.quantum_mode:
+# BOUTON STANDARD (Réparé)
+if st.button("🚀 ANALYSER", type="primary"):
+    st.session_state.quantum_mode = False # Force Standard Mode
     with st.spinner("Chargement..."):
         hid, aid, lid = m_data['teams']['home']['id'], m_data['teams']['away']['id'], m_data['league']['id']
         hs, as_ = get_deep_stats(hid), get_deep_stats(aid)
         if hs and as_ and model:
             vec = np.array([[lid, hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
             p = model.predict_proba(vec)[0]
-            s = sim_score(hs, as_) # Sim simple
+            # Ici sim_score fonctionnera car elle est définie plus haut
+            s = sim_score(hs, as_) 
             st.session_state.analyzed_match_data = {"m": m_data, "h": hs, "a": as_, "p": p, "s": s, "hid": hid, "aid": aid, "mode": "std"}
-            st.session_state.quantum_mode = False
 
-# LOGIQUE D'AFFICHAGE SELON LE MODE (Standard vs Quantum)
 if st.session_state.analyzed_match_data:
     d = st.session_state.analyzed_match_data
+    
+    # Si on est en mode standard mais qu'on a des données quantum, on nettoie ou inversement
+    # (Simple check de sécurité)
+    
     h, a, m = d['h'], d['a'], d['m']
     
     # Header Commun
@@ -305,43 +335,64 @@ if st.session_state.analyzed_match_data:
     </div>
     """, unsafe_allow_html=True)
 
-    # --- AFFICHAGE MODE QUANTUM (NOUVEAU) ---
+    # === AFFICHAGE MODE QUANTUM ===
     if st.session_state.quantum_mode and 'q' in d:
         q = d['q']
-        st.markdown("### 🧬 ANALYSE QUANTIQUE AVANCÉE")
+        st.markdown("<div class='quantum-btn'>🧬 ANALYSE QUANTIQUE ACTIVÉE</div>", unsafe_allow_html=True)
         
-        # 1. Probas recalculées par Poisson (Plus précis)
+        # 1. SNIPER EXACT SCORE
         st.markdown(f"""
-        <div class="probs-container">
-            <div class="prob-box"><div class="prob-label">PROBA DOM</div><div class="prob-value" style="color:#00D4FF !important;">{q['prob_h']*100:.1f}%</div></div>
-            <div class="prob-box"><div class="prob-label">PROBA NUL</div><div class="prob-value">{q['prob_d']*100:.1f}%</div></div>
-            <div class="prob-box"><div class="prob-label">PROBA EXT</div><div class="prob-value" style="color:#00D4FF !important;">{q['prob_a']*100:.1f}%</div></div>
+        <div class="q-box">
+            <div class="q-title">🎯 VISEUR SNIPER (Score Exact)</div>
+            <div style="text-align:center; font-size: 2.5rem; font-weight:900; color:#00FF99; text-shadow: 0 0 10px #00FF99;">
+                {q['sniper_score']}
+            </div>
+            <div style="text-align:center; font-size: 0.8rem; color:#888;">Probabilité pure: {q['sniper_conf']:.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
         
-        # 2. Les "Fair Odds" (Cote Réelle)
-        st.info("ℹ️ **Cotes Réelles (Fair Odds)** : Si le bookmaker offre plus, c'est une Value Bet.")
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f"**1:** <span class='fair-odd'>{q['odd_h']:.2f}</span>", unsafe_allow_html=True)
-        c2.markdown(f"**N:** <span class='fair-odd'>{q['odd_d']:.2f}</span>", unsafe_allow_html=True)
-        c3.markdown(f"**2:** <span class='fair-odd'>{q['odd_a']:.2f}</span>", unsafe_allow_html=True)
-        
-        # 3. xG Prédictifs
-        st.write("---")
-        st.write("#### 🎯 Performance Attendue (xG)")
-        xg_col1, xg_col2 = st.columns(2)
-        xg_col1.metric(f"xG {h['name']}", f"{q['xg_h']:.2f}")
-        xg_col2.metric(f"xG {a['name']}", f"{q['xg_a']:.2f}")
-        
-        # 4. Indicateurs de Puissance
-        st.write("#### ⚔️ Forces en présence")
-        st.progress(q['att_power_h'] / (q['att_power_h'] + q['att_power_a']))
-        st.caption(f"Puissance Offensive : {h['name']} (Gauche) vs {a['name']} (Droite)")
-        
-        st.progress(q['def_wall_h'] / (q['def_wall_h'] + q['def_wall_a']))
-        st.caption(f"Solidité Défensive : {h['name']} (Gauche) vs {a['name']} (Droite)")
+        # 2. MOMENTUM & UPSET
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"""
+            <div class="q-box" style="height:120px;">
+                <div class="q-title">🌊 MOMENTUM</div>
+                <div style="font-size:0.8rem;">Domicile: <b>{q['momentum_h']:.0f}</b></div>
+                <div style="font-size:0.8rem;">Extérieur: <b>{q['momentum_a']:.0f}</b></div>
+                <progress value="{q['momentum_h']}" max="100" style="width:100%; height:5px;"></progress>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            color = "#FF4B4B" if q['upset_risk'] > 30 else "#00FF99"
+            st.markdown(f"""
+            <div class="q-box" style="height:120px;">
+                <div class="q-title">⚠️ RISQUE SURPRISE</div>
+                <div style="text-align:center; font-size:1.8rem; font-weight:bold; color:{color}; margin-top:10px;">
+                    {q['upset_risk']:.0f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 3. HT & VALUE
+        c3, c4 = st.columns(2)
+        with c3:
+            st.markdown(f"""
+            <div class="q-box">
+                <div class="q-title">⏱️ HT MASTER</div>
+                <div style="text-align:center; font-weight:bold; font-size:1.1rem;">{q['ht_pred']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"""
+            <div class="q-box">
+                <div class="q-title">💎 INDICE ALPHA</div>
+                <div style="text-align:center; font-weight:bold; font-size:1.1rem; color:#FFA500;">{q['alpha_index']:.0f}/100</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # --- AFFICHAGE MODE STANDARD (ANCIEN MAIS OPTIMISÉ) ---
+        st.info(f"💡 **Conseil Quantum :** Le modèle prévoit {q['xg_h']:.1f} buts pour {h['name']} et {q['xg_a']:.1f} pour {a['name']}.")
+
+    # === AFFICHAGE MODE STANDARD (Restauré) ===
     elif 'p' in d:
         p, s, hid, aid = d['p'], d['s'], d['hid'], d['aid']
         
@@ -393,7 +444,7 @@ if st.session_state.analyzed_match_data:
             elif "H2H" in filtre:
                 h2h = get_h2h_stats(hid, aid)
                 if h2h: vh=h2h['vol']; va=h2h['vol']; msg=f"Sur {h2h['matches']} matchs."
-                else: msg="Pas d'historique."
+                else: msg="Pas d'historique valide."
             c_a, c_b = st.columns(2)
             c_a.write(f"Dom: **{'ÉLEVÉ' if vh>1.4 else 'Faible'}**"); c_b.write(f"Ext: **{'ÉLEVÉ' if va>1.4 else 'Faible'}**")
             st.caption(msg)
