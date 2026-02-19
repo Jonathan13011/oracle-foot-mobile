@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V27 (MISE À JOUR 72H & FILTRE LIVE) ---
-st.set_page_config(page_title="Oracle V27", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V28 (LIGUES & TOUS LES MATCHS) ---
+st.set_page_config(page_title="Oracle V28", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -66,7 +66,8 @@ st.markdown("""
 
 API_KEY = "4d3c1dbf76600a937722ff6425d450ee"
 HEADERS = {'x-rapidapi-host': "v3.football.api-sports.io", 'x-rapidapi-key': API_KEY}
-LEAGUE_IDS = [2, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323]
+# NOUVELLES LIGUES AJOUTÉES : 3 = Europa League, 848 = Conference League. 307 = Saudi Pro League (Déjà là)
+LEAGUE_IDS = [2, 3, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323, 848]
 
 # STATES
 if 'analyzed_match_data' not in st.session_state: st.session_state.analyzed_match_data = None
@@ -78,13 +79,11 @@ if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
 
-# --- MOTEUR DONNÉES (MISE A JOUR V27) ---
+# --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
-    # MODIF : 3 Jours (J, J+1, J+2)
     today = datetime.now().strftime("%Y-%m-%d")
     end = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d") 
-    
     clean_fixtures = []
     
     for l in LEAGUE_IDS:
@@ -92,8 +91,6 @@ def get_upcoming_matches():
             r = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"league": l, "season": "2025", "from": today, "to": end, "timezone": "Europe/Paris"}).json()
             if 'response' in r:
                 for f in r['response']:
-                    # FILTRE INTELLIGENT : On ne garde que les matchs NON COMMENCÉS (NS) ou A DÉFINIR (TBD)
-                    # On exclut les FT (Finis), 1H/2H (En cours), PST (Reportés), etc.
                     status = f['fixture']['status']['short']
                     if status in ['NS', 'TBD']:
                         clean_fixtures.append(f)
@@ -266,7 +263,7 @@ def gen_scorer_ticket(fix):
     return scorers[:6]
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V27")
+st.title("📱 ORACLE V28")
 
 all_fixtures = get_upcoming_matches()
 
@@ -275,7 +272,7 @@ if all_fixtures:
     competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
     dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
     
-    st.markdown("### 📅 SÉLECTION DU MATCH (3 Jours)")
+    st.markdown("### 📅 SÉLECTION DU MATCH")
     c1, c2 = st.columns(2)
     sel_league = c1.selectbox("Compétition", ["Toutes"] + competitions)
     sel_date = c2.selectbox("Date", ["Toutes"] + dates)
@@ -285,18 +282,21 @@ if all_fixtures:
     if sel_date != "Toutes": filt_fix = [f for f in filt_fix if f['fixture']['date'][:10] == sel_date]
     
     if filt_fix:
-        match_map = {f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in filt_fix}
+        # AJOUT DE L'OPTION "TOUS LES MATCHS"
+        match_map = {"Tous les matchs": None} 
+        match_map.update({f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in filt_fix})
         sel_match = st.selectbox("Rencontre", list(match_map.keys()))
         match_data = match_map[sel_match]
-    else: match_data = None
+    else: match_data = "EMPTY"
 else:
-    st.info("Aucun match prévu pour les 72 prochaines heures dans les ligues suivies.")
-    match_data = None
+    st.info("Aucun match prévu pour les prochains jours.")
+    match_data = "EMPTY"
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("🎟️ TICKET")
-    if st.button("🎰 GÉNÉRER", type="primary"):
+    # BOUTON RENOMMÉ
+    if st.button("🎰 GÉNÉRER PRONOS", type="primary"):
         st.session_state.mode = "std"
         with st.spinner("Calculs..."): st.session_state.ticket_data = gen_match_ticket(all_fixtures)
     
@@ -319,8 +319,22 @@ with st.sidebar:
             st.markdown(f"🎯 **{p['name']}**")
             st.caption(f"Team: {item['team']} | Buts: {p['goals']}")
 
-# --- ANALYSE ---
-if match_data:
+# --- AFFICHAGE PRINCIPAL ---
+
+# Si l'utilisateur choisit "Tous les matchs"
+if match_data is None and sel_match == "Tous les matchs":
+    st.markdown("---")
+    st.markdown("### 📋 Liste des rencontres filtrées")
+    for f in filt_fix:
+        st.markdown(f"""
+        <div style='background-color:#1a1c24; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #333; display:flex; justify-content:space-between; align-items:center;'>
+            <span style='color:#00FF99; font-weight:bold;'>{f['fixture']['date'][11:16]}</span>
+            <span style='font-weight:bold; font-size:0.9rem;'>{f['teams']['home']['name']} vs {f['teams']['away']['name']}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Si un match spécifique est sélectionné
+elif match_data != "EMPTY":
     st.markdown("---")
     b1, b2 = st.columns(2)
     if b1.button("🚀 ANALYSER", type="primary", use_container_width=True):
@@ -358,26 +372,44 @@ if match_data:
             </div>
             """, unsafe_allow_html=True)
             
-            filter_opt = st.radio("Analyser sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, label_visibility="collapsed")
-            limit = 5 if "5" in filter_opt else (20 if "Saison" in filter_opt else 10)
-            h = process_stats_by_filter(d['raw_h'], limit)
-            a = process_stats_by_filter(d['raw_a'], limit)
-            
+            # --- AFFICHAGE QUANTUM ---
             if st.session_state.quantum_mode and 'q' in d:
                 q = d['q']
                 st.markdown(f"""<div class="q-box"><div class="q-title">🎯 VISEUR SNIPER</div><div style="text-align:center; font-size:2.5rem; font-weight:900; color:#00FF99;">{q['sniper_score']}</div><div style="text-align:center; font-size:0.8rem; color:#888;">Confiance: {q['sniper_conf']:.1f}%</div></div>""", unsafe_allow_html=True)
                 st.info(f"xG Prédictifs : Dom {q['xg_h']:.2f} - Ext {q['xg_a']:.2f}")
+                
+                # FILTRES REPOSITIONNÉS (Sous l'info)
+                filter_opt = st.radio("Analyser sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, label_visibility="collapsed")
+
+            # --- AFFICHAGE STANDARD ---
             else:
                 p = d['p']
+                
+                # RECALCUL INITIAL POUR L'ANALYSE COHÉRENTE
+                # On utilise la valeur par défaut du radio ou la valeur sélectionnée juste en dessous
+                filter_opt = st.radio("Analyser sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True)
+                limit = 5 if "5" in filter_opt else (20 if "Saison" in filter_opt else 10)
+                h = process_stats_by_filter(d['raw_h'], limit)
+                a = process_stats_by_filter(d['raw_a'], limit)
+
                 st.markdown(f"""<div class="probs-container"><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div><div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div></div>""", unsafe_allow_html=True)
+                
                 with st.expander("🔎 Voir l'analyse"):
                     st.info(f"**Dom :** {gen_smart_justif('🏆 Résultat', 'Domicile', h, a)}")
                     st.info(f"**Ext :** {gen_smart_justif('🏆 Résultat', 'Extérieur', h, a)}")
+                    
                 st.progress(int(max(p)*100))
-                
+
+            # --- APPLICATION DES FILTRES POUR LES ONGLETS ---
+            limit = 5 if "5" in filter_opt else (20 if "Saison" in filter_opt else 10)
+            h = process_stats_by_filter(d['raw_h'], limit)
+            a = process_stats_by_filter(d['raw_a'], limit)
+            
+            # TABS (S'adaptent dynamiquement à 'h' et 'a')
+            if h and a:
                 t1, t2, t3, t4 = st.tabs(["🔮 Score 10k", "⚡ Stats & Buteurs", "🛑 Discipline", "💰 Conseil"])
                 with t1:
-                    st.write(f"**Simulation 10 000 Matchs ({filter_opt})**")
+                    st.write(f"**Simulation 10 000 Matchs (Sur la base des {filter_opt})**")
                     scores, red, pens = simulate_10k_scenarios(h, a)
                     c1, c2, c3 = st.columns(3)
                     if len(scores)>0: c1.metric("#1", scores[0][0], f"{scores[0][1]}x")
@@ -417,4 +449,8 @@ if match_data:
                         h2h = get_h2h_stats(d['raw_h']['id'], d['raw_a']['id'])
                         if h2h: st.success(f"H2H ({h2h['matches']}m): {h2h['avg_goals']:.1f} buts/match")
                         else: st.warning("Pas d'historique récent.")
-                with t4: st.success(f"Confiance: {max(p)*100:.0f}%")
+                with t4: 
+                    if 'p' in d: st.success(f"Confiance Modèle : {max(d['p'])*100:.0f}%")
+                    else: st.success("Analyse Quantique privilégiée.")
+            else:
+                st.warning("Données insuffisantes pour cette équipe sur cette période.")
