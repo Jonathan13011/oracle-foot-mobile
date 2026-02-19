@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V32 (ULTIMATE PERFECTION) ---
-st.set_page_config(page_title="Oracle V32", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V33 (TICKETS MULTIPLES & ANTI-DOUBLONS) ---
+st.set_page_config(page_title="Oracle V33", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -19,11 +19,9 @@ st.markdown("""
     .stApp { background-color: #0E1117; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, label, h4, h5, h6, li { color: #FFFFFF !important; }
 
-    /* ==============================================
-       FIX : FENÊTRES MODALES (DIALOGS IPHONE) LISIBLES
-       ============================================== */
+    /* FENÊTRES MODALES (DIALOGS IPHONE) LISIBLES */
     div[role="dialog"] { 
-        background-color: #0b1016 !important; /* Fond très sombre */
+        background-color: #0b1016 !important; 
         border: 2px solid #00FF99 !important; 
         border-radius: 15px !important;
         box-shadow: 0 0 30px rgba(0, 255, 153, 0.2);
@@ -175,6 +173,7 @@ def process_stats_by_filter(raw_stats, limit):
     return {
         "name": raw_stats['name'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form,
         "cs_rate": cs/len(data)*100 if data else 0, "btts_rate": btts/len(data)*100 if data else 0,
+        "draw_rate": ft_draws/len(data)*100 if data else 0,
         "vol": vol, "pen_for": pen_for, "red_cards": reds, "streak": "".join([x['res'] for x in data[:5]]),
         "count": len(data), "raw_gf": gs,
         "ht_draws": ht_draws, "ft_draws": ft_draws, "scored_70": scored_70, "conceded_70": conceded_70
@@ -245,7 +244,6 @@ def get_quantum_analysis(h, a):
     return {"sniper_score": best_s, "sniper_conf": best_p*100, "upset_risk": upset*100, "alpha_index": alpha, "xg_h": xg_h, "xg_a": xg_a, "mom_h": mom_h, "mom_a": mom_a}
 
 def get_coherent_probabilities(h, a):
-    # Génère des probabilités parfaites si le modèle ML n'est pas utilisé
     lam_h = max(0.1, (h['avg_gf'] + a['avg_ga']) / 2) * 1.15
     lam_a = max(0.1, (a['avg_gf'] + h['avg_ga']) / 2)
     ph, pd, pa = 0, 0, 0
@@ -256,47 +254,73 @@ def get_coherent_probabilities(h, a):
             elif i == j: pd += prob
             else: pa += prob
     tot = ph + pd + pa
-    return [pd/tot, ph/tot, pa/tot] # [Nul, Dom, Ext] pour correspondre à l'interface
+    return [pd/tot, ph/tot, pa/tot]
 
-def gen_smart_justif(type, val, h, a):
-    r = []
-    h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
-    if "Domicile" in val:
-        if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme.")
-        if h.get('avg_gf', 0) > 1.5: r.append("Attaque prolifique à domicile.")
-        if a.get('avg_ga', 0) > 1.5: r.append(f"Défense adverse friable.")
-    elif "Extérieur" in val:
-        if a.get('form', 0) > 1.5: r.append(f"{a_name} voyage bien.")
-        if a.get('avg_gf', 0) > 1.5: r.append("Contre-attaque efficace.")
-    elif "Nul" in val: r.append("Forces équilibrées.")
-    return random.choice(r) if r else "Analyse statistique favorable."
-
-# --- TICKETS (SANS DOUBLONS) ---
+# --- NOUVEAU GÉNÉRATEUR DE TICKETS (INTELLIGENT & SANS DOUBLONS) ---
 def gen_match_ticket(fix):
-    pools = {"WIN":[], "DRAW":[], "OVER":[]}
-    bar = st.sidebar.progress(0, text="Scan...")
+    pools = {"WIN":[], "DRAW":[], "OVER":[], "UNDER":[], "BTTS":[]}
+    bar = st.sidebar.progress(0, text="Analyse Multidimensionnelle...")
     limit = min(len(fix), 20)
+    
     for i, f in enumerate(fix[:limit]):
-        hid, aid, lid = f['teams']['home']['id'], f['teams']['away']['id'], f['league']['id']
+        hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+        
         if raw_h and raw_a:
             hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-            if hs['form'] > 2.0 and as_['form'] < 1.0:
-                pools["WIN"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🏆 Résultat", "v": f"Victoire {hs['name']}", "j": "Forme impériale", "h": hs, "a": as_})
-            elif (hs['avg_gf'] + as_['avg_gf']) > 3.0:
-                pools["OVER"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "⚽ Buts", "v": "+2.5 Buts", "j": "Potentiel offensif", "h": hs, "a": as_})
+            
+            # Récupération H2H rapide (safe)
+            h2h = get_h2h_stats(hid, aid)
+            h2h_avg = h2h['avg_goals'] if h2h else (hs['avg_gf'] + as_['avg_gf'])
+            
+            # --- 1. Match Nul ---
+            if abs(hs['form'] - as_['form']) <= 0.4 and (hs['draw_rate'] > 30 or as_['draw_rate'] > 30):
+                pools["DRAW"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "⚖️ Résultat", "v": "Match Nul", "j": "Niveau très équilibré et forte tendance au nul.", "h": hs, "a": as_})
+            
+            # --- 2. BTTS (Les 2 marquent) ---
+            elif hs['btts_rate'] >= 60 and as_['btts_rate'] >= 60 and hs['avg_gf'] >= 1.2 and as_['avg_gf'] >= 1.2:
+                pools["BTTS"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🥅 Les 2 marquent", "v": "OUI", "j": "Attaques performantes et défenses friables.", "h": hs, "a": as_})
+            
+            # --- 3. Moins de 2.5 Buts (Under) ---
+            elif (hs['avg_gf'] + as_['avg_gf']) < 2.2 and hs['avg_ga'] <= 1.2 and as_['avg_ga'] <= 1.2 and h2h_avg < 2.5:
+                pools["UNDER"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🔒 Buts", "v": "-2.5 Buts", "j": "Défenses de fer, match très fermé attendu.", "h": hs, "a": as_})
+            
+            # --- 4. Plus de 2.5 Buts (Over) ---
+            elif (hs['avg_gf'] + as_['avg_gf']) > 3.0 and h2h_avg >= 2.5:
+                pools["OVER"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "⚽ Buts", "v": "+2.5 Buts", "j": "Forte puissance offensive et historique prolifique.", "h": hs, "a": as_})
+            
+            # --- 5. Victoire ---
+            elif hs['form'] > 2.0 and as_['form'] < 1.2:
+                pools["WIN"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🏆 Résultat", "v": f"Victoire {hs['name']}", "j": "Domination totale du favori à domicile.", "h": hs, "a": as_})
+            elif as_['form'] > 2.0 and hs['form'] < 1.2:
+                pools["WIN"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🏆 Résultat", "v": f"Victoire {as_['name']}", "j": "Dynamique impressionnante à l'extérieur.", "h": hs, "a": as_})
+                
         bar.progress((i+1)/limit)
     bar.empty()
     
-    # ANTI-DOUBLONS
+    # --- FILTRE ANTI-DOUBLONS ET DIVERSIFICATION ---
     seen_matches = set()
     final_ticket = []
     
-    # On pioche dans les pools tout en vérifiant l'unicité
-    all_potential_bets = pools["WIN"] + pools["OVER"]
-    random.shuffle(all_potential_bets)
+    categories = ["DRAW", "UNDER", "BTTS", "WIN", "OVER"]
+    random.shuffle(categories)
     
-    for bet in all_potential_bets:
+    # 1er passage : on essaie d'avoir un type de pari différent
+    for cat in categories:
+        if pools[cat]:
+            random.shuffle(pools[cat])
+            for bet in pools[cat]:
+                if bet['m'] not in seen_matches:
+                    final_ticket.append(bet)
+                    seen_matches.add(bet['m'])
+                    break
+                    
+    # 2ème passage : on remplit jusqu'à 6 avec le reste
+    all_remaining = []
+    for cat in categories: all_remaining.extend(pools[cat])
+    random.shuffle(all_remaining)
+    
+    for bet in all_remaining:
         if bet['m'] not in seen_matches:
             final_ticket.append(bet)
             seen_matches.add(bet['m'])
@@ -354,14 +378,11 @@ def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
 @st.dialog("📈 GRAPH DES 10 000 SIMULATIONS")
 def show_full_10k_graph(scores):
     st.write("Convergence des probabilités pour les 3 scénarios majeurs :")
-    
-    # On recrée l'évolution de la probabilité à travers 10 paliers (1k à 10k)
     steps = list(range(1000, 11000, 1000))
     data = []
     for score_str, count in scores:
         target_pct = (count / 10000.0) * 100
         for s in steps:
-            # Bruit qui diminue avec le temps (loi des grands nombres)
             noise = (random.random() - 0.5) * (15 / (s/1000)) 
             val = max(0, target_pct + noise)
             if s == 10000: val = target_pct
@@ -384,16 +405,12 @@ def show_full_10k_graph(scores):
 def show_player_form_dialog(player):
     st.markdown(f"### {player['name']}")
     st.write("Dernières actions décisives simulées par l'IA :")
-    
-    # Génération pseudo-aléatoire mais réaliste basée sur le nom du joueur
     random.seed(player['name'])
     today = datetime.now()
-    
     st.success(f"📅 {(today - timedelta(days=random.randint(2, 5))).strftime('%d/%m')} : **Buteur** (Note du match: {round(player['rating']+0.2, 1)})")
     if random.random() > 0.4:
         st.info(f"📅 {(today - timedelta(days=random.randint(8, 12))).strftime('%d/%m')} : **Passe Décisive / Occasion majeure**")
-    
-    random.seed() # Reset du seed
+    random.seed() 
     st.caption("Données extraites des 5 dernières apparitions du joueur.")
 
 # --- INTERFACE ---
@@ -430,18 +447,20 @@ with st.sidebar:
     st.header("🎟️ TICKET")
     if st.button("🎰 GÉNÉRER PRONOS", type="primary"):
         st.session_state.mode = "std"
-        with st.spinner("Calculs anti-doublons..."): st.session_state.ticket_data = gen_match_ticket(all_fixtures)
+        with st.spinner("Création ticket intelligent..."): st.session_state.ticket_data = gen_match_ticket(all_fixtures)
     
     if st.button("⚽ BUTEURS POTENTIELS"):
         st.session_state.mode = "scorer"
         with st.spinner("Recherche..."): st.session_state.scorer_ticket = gen_scorer_ticket(all_fixtures)
 
-    # TICKETS CLIQUABLES (Pop-ups)
+    # TICKETS CLIQUABLES
     if st.session_state.mode == "std" and st.session_state.ticket_data:
-        st.success("✅ TICKET MATCHS")
+        st.success("✅ TICKET MATCHS (Anti-Doublons)")
         for i, item in enumerate(st.session_state.ticket_data):
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
-            if st.button(f"🔸 {item['t']} : {item['v']}", key=f"tck_btn_{i}", use_container_width=True):
+            # Icone Dynamique
+            icon = "⚖️" if "Nul" in item['v'] else ("🔒" if "-2.5" in item['v'] else ("🥅" if "OUI" in item['v'] or "BTTS" in item['t'] else ("⚽" if "+2.5" in item['v'] else "🏆")))
+            if st.button(f"{icon} {item['t']} : {item['v']}", key=f"tck_btn_{i}", use_container_width=True):
                 show_analysis_dialog("match", item['m'], item['v'], item['h'], item['a'])
 
     if st.session_state.mode == "scorer" and st.session_state.scorer_ticket:
@@ -453,7 +472,6 @@ with st.sidebar:
                 show_analysis_dialog("scorer", item['m'], f"Buteur : {p['name']}", item['h'], item['a'], p)
 
 # --- AFFICHAGE PRINCIPAL ---
-
 if match_data is None and sel_match == "Tous les matchs":
     st.markdown("---")
     st.markdown("### 📋 Liste des rencontres filtrées")
@@ -469,13 +487,10 @@ elif match_data != "EMPTY":
             hid, aid = match_data['teams']['home']['id'], match_data['teams']['away']['id']
             raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
             hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-            
-            # Calcul Cohérent Réel si pas de ML
-            p = get_coherent_probabilities(hs, as_)
+            p = get_coherent_probabilities(hs, as_) # Cohérence mathématique assurée
             if model:
                 vec = np.array([[match_data['league']['id'], hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
                 p = model.predict_proba(vec)[0]
-                
             st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
 
     if b2.button("🧬 QUANTUM SNIPER", use_container_width=True):
@@ -499,38 +514,27 @@ elif match_data != "EMPTY":
             </div>
             """, unsafe_allow_html=True)
             
-            # FILTRE GLOBAL DYNAMIQUE POUR LES TABS
             st.markdown("### ⚙️ Options d'Analyse")
             filter_opt = st.radio("Baser les statistiques sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, key="main_filter")
             limit = 5 if "5" in filter_opt else (20 if "Saison" in filter_opt else 10)
             
-            # Recalcul des variables H et A en fonction du bouton radio
             h = process_stats_by_filter(d['raw_h'], limit)
             a = process_stats_by_filter(d['raw_a'], limit)
             
-            # --- AFFICHAGE QUANTUM ---
             if st.session_state.quantum_mode and 'q' in d:
                 q = d['q']
                 st.markdown("<h4 style='color:#00D4FF;'>🎯 RÉSULTAT QUANTUM (Cliquable)</h4>", unsafe_allow_html=True)
-                
-                # BOUTON GEANT QUANTUM QUI OUVRE LE POPUP
                 if st.button(f"SCORE EXACT : {q['sniper_score']} \n\n (Confiance: {q['sniper_conf']:.1f}%)", use_container_width=True):
                     show_analysis_dialog("quantum", f"{h['name']} vs {a['name']}", f"Cible : {q['sniper_score']}", h, a, q)
-
-            # --- AFFICHAGE STANDARD ---
             else:
                 p = d['p']
-                
                 st.markdown(f"""<div class="probs-container"><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">DOMICILE</div><div class="prob-value">{p[1]*100:.0f}%</div></div><div class="prob-box"><div class="prob-label">NUL</div><div class="prob-value">{p[0]*100:.0f}%</div></div><div class="prob-box"><div class="info-icon">💡</div><div class="prob-label">EXTÉRIEUR</div><div class="prob-value">{p[2]*100:.0f}%</div></div></div>""", unsafe_allow_html=True)
-                
                 if st.button("🧠 Décortiquer le Raisonnement de l'IA", use_container_width=True):
                     best_idx = np.argmax(p)
                     pred_str = "Victoire Domicile" if best_idx==1 else ("Victoire Extérieur" if best_idx==2 else "Match Nul")
                     show_analysis_dialog("match", f"{h['name']} vs {a['name']}", pred_str, h, a)
-                    
                 st.progress(int(max(p)*100))
 
-            # --- TABS DYNAMIQUES (Se mettent à jour avec le filtre) ---
             if h and a:
                 t1, t2, t3, t4 = st.tabs(["🔮 Score 10k", "⚡ Stats & Buteurs", "🛑 Discipline", "💰 Conseil"])
                 
@@ -543,9 +547,13 @@ elif match_data != "EMPTY":
                         show_full_10k_graph(scores)
                         
                     c1, c2, c3 = st.columns(3)
-                    if len(scores)>0: c1.metric("#1", scores[0][0], f"{scores[0][1]}x")
-                    if len(scores)>1: c2.metric("#2", scores[1][0], f"{scores[1][1]}x")
-                    if len(scores)>2: c3.metric("#3", scores[2][0], f"{scores[2][1]}x")
+                    if len(scores)>0: 
+                        if c1.button(f"#1: {scores[0][0]}\n({scores[0][1]}x)", use_container_width=True): show_scenario_chart(scores[0][0], scores[0][1])
+                    if len(scores)>1: 
+                        if c2.button(f"#2: {scores[1][0]}\n({scores[1][1]}x)", use_container_width=True): show_scenario_chart(scores[1][0], scores[1][1])
+                    if len(scores)>2: 
+                        if c3.button(f"#3: {scores[2][0]}\n({scores[2][1]}x)", use_container_width=True): show_scenario_chart(scores[2][0], scores[2][1])
+                        
                     st.caption(f"Risques Majeurs : 🟥 Rouge {red/100:.1f}% | ⚽ Penalty {pens/100:.1f}%")
                 
                 with t2:
@@ -554,7 +562,6 @@ elif match_data != "EMPTY":
                     row("Moy. Encaissés", f"{h['avg_ga']:.2f}", f"{a['avg_ga']:.2f}")
                     row("Clean Sheets", f"{h['cs_rate']:.0f}", f"{a['cs_rate']:.0f}", "%")
                     
-                    # NOUVEAU : BILAN MATCHS NULS & FIN DE MATCH
                     st.markdown("---")
                     st.markdown(f"#### ⏱️ Bilan Matchs Nuls & Fin de match ({filter_opt})")
                     c_n1, c_n2 = st.columns(2)
@@ -609,7 +616,6 @@ elif match_data != "EMPTY":
                     
                     conf = d['q']['sniper_conf'] if st.session_state.quantum_mode else max(d['p']) * 100
                     
-                    # Formule Bankroll
                     panier_max_par_pari = bankroll / num_bets
                     mise_calculee = panier_max_par_pari * (conf / 100)
                     mise_finale = min(mise_calculee, bankroll * 0.10)
