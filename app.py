@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V34 (ENJEUX & TICKETS DYNAMIQUES) ---
-st.set_page_config(page_title="Oracle V34", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V35 (ANALYSE FINALE & HISTORIQUE) ---
+st.set_page_config(page_title="Oracle V35", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -20,7 +20,12 @@ st.markdown("""
     p, h1, h2, h3, div, span, label, h4, h5, h6, li { color: #FFFFFF !important; }
 
     /* FENÊTRES MODALES (DIALOGS IPHONE) LISIBLES */
-    div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
+    div[role="dialog"] { 
+        background-color: #0b1016 !important; 
+        border: 2px solid #00FF99 !important; 
+        border-radius: 15px !important;
+        box-shadow: 0 0 30px rgba(0, 255, 153, 0.2);
+    }
     div[role="dialog"] * { color: #FFFFFF !important; }
     div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; }
     div[role="dialog"] p, div[role="dialog"] li { color: #e0e0e0 !important; }
@@ -44,7 +49,7 @@ st.markdown("""
     .q-title { color: #00D4FF !important; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
 
     /* HEADER MATCH */
-    .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+    .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
     .team-logo { width: 45px; height: 45px; object-fit: contain; margin-bottom: 3px; }
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
@@ -128,12 +133,22 @@ def get_deep_stats(tid):
             if gf > 0 and random.random() > 0.5: s_70 += 1
             if ga > 0 and random.random() > 0.5: c_70 += 1
 
-        history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0})
-    return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], "id": tid, "history": history, "league_id": d[0]['league']['id']}
+        history.append({
+            "gf": gf, "ga": ga, "res": res, 
+            "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0,
+            "red_card": 1 if (random.random() > 0.95) else 0,
+            "ht_draw": ht_d, "ft_draw": ft_d,
+            "scored_70": 1 if s_70 > 0 else 0,
+            "conceded_70": 1 if c_70 > 0 else 0
+        })
+        
+    return {
+        "name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'],
+        "id": tid, "history": history, "league_id": d[0]['league']['id']
+    }
 
 @st.cache_data(ttl=3600)
 def get_standings(league_id):
-    # NOUVEAU : Récupération du classement pour l'onglet "Enjeu"
     try:
         r = requests.get("https://v3.football.api-sports.io/standings", headers=HEADERS, params={"league": league_id, "season": "2025"}).json()
         if 'response' in r and len(r['response']) > 0:
@@ -145,6 +160,7 @@ def process_stats_by_filter(raw_stats, limit):
     if not raw_stats or 'history' not in raw_stats: return None
     data = raw_stats['history'][:limit]
     if not data: return None
+    
     gs = [x['gf'] for x in data]; gc = [x['ga'] for x in data]
     avg_gf = sum(gs)/len(data) if data else 0
     avg_ga = sum(gc)/len(data) if data else 0
@@ -152,16 +168,40 @@ def process_stats_by_filter(raw_stats, limit):
     form = pts / len(data) if data else 0
     cs = sum([1 for x in data if x['ga']==0])
     btts = sum([1 for x in data if x['gf']>0 and x['ga']>0])
+    pen_for = sum([x['pen_call'] for x in data])
+    reds = sum([x['red_card'] for x in data])
+    
+    ht_draws = sum([x['ht_draw'] for x in data])
+    ft_draws = sum([x['ft_draw'] for x in data])
+    scored_70 = sum([x['scored_70'] for x in data])
+    conceded_70 = sum([x['conceded_70'] for x in data])
+    
     try: vol = statistics.stdev(gs)
     except: vol = 0
-    return {"name": raw_stats['name'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form, "cs_rate": cs/len(data)*100 if data else 0, "btts_rate": btts/len(data)*100 if data else 0, "draw_rate": sum([x['ft_draw'] for x in data])/len(data)*100 if data else 0, "vol": vol, "pen_for": sum([x['pen_call'] for x in data]), "red_cards": sum([x['red_card'] for x in data]), "streak": "".join([x['res'] for x in data[:5]]), "count": len(data), "raw_gf": gs, "ht_draws": sum([x['ht_draw'] for x in data]), "ft_draws": sum([x['ft_draw'] for x in data]), "scored_70": sum([x['scored_70'] for x in data]), "conceded_70": sum([x['conceded_70'] for x in data])}
+    
+    return {
+        "name": raw_stats['name'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form,
+        "cs_rate": cs/len(data)*100 if data else 0, "btts_rate": btts/len(data)*100 if data else 0,
+        "draw_rate": sum([x['ft_draw'] for x in data])/len(data)*100 if data else 0,
+        "vol": vol, "pen_for": pen_for, "red_cards": reds, "streak": "".join([x['res'] for x in data[:5]]),
+        "count": len(data), "raw_gf": gs,
+        "ht_draws": ht_draws, "ft_draws": ft_draws, "scored_70": scored_70, "conceded_70": conceded_70
+    }
 
 @st.cache_data(ttl=86400)
 def get_top_scorers(league_id, team_id):
     try:
         r = requests.get("https://v3.football.api-sports.io/players/topscorers", headers=HEADERS, params={"league": league_id, "season": "2025"}).json()
         if 'response' in r:
-            return [{"name": p['player']['name'], "goals": p['statistics'][0]['goals']['total'] or 0, "rating": float(p['statistics'][0]['games']['rating'] or 0)} for p in r['response'] if p['statistics'][0]['team']['id'] == team_id][:3]
+            team_scorers = []
+            for p in r['response']:
+                if p['statistics'][0]['team']['id'] == team_id:
+                    team_scorers.append({
+                        "name": p['player']['name'], 
+                        "goals": p['statistics'][0]['goals']['total'] or 0, 
+                        "rating": float(p['statistics'][0]['games']['rating'] or 0)
+                    })
+            return team_scorers[:3]
     except: pass
     return []
 
@@ -169,7 +209,11 @@ def get_top_scorers(league_id, team_id):
 def get_h2h_stats(h_id, a_id):
     d = requests.get("https://v3.football.api-sports.io/fixtures/headtohead", headers=HEADERS, params={"h2h": f"{h_id}-{a_id}"}).json().get('response', [])
     if not d: return None
-    goals = [m['goals']['home']+m['goals']['away'] for m in d if m['fixture']['status']['short'] in ['FT', 'AET', 'PEN'] and m['goals']['home'] is not None and m['goals']['away'] is not None]
+    goals = []
+    for m in d:
+        if m['fixture']['status']['short'] in ['FT', 'AET', 'PEN']:
+            gh, ga = m['goals']['home'], m['goals']['away']
+            if gh is not None and ga is not None: goals.append(gh+ga)
     if not goals: return None
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
@@ -191,6 +235,7 @@ def simulate_10k_scenarios(h_stats, a_stats):
     return Counter(scores).most_common(3), red_c, pen_c
 
 def get_quantum_analysis(h, a):
+    lg_avg = 1.35
     xg_h = (h['avg_gf'] / 1.35) * (a['avg_ga'] / 1.35) * 1.35 * 1.15
     xg_a = (a['avg_gf'] / 1.35) * (h['avg_ga'] / 1.35) * 1.35
     best_s, best_p, upset = "0-0", 0, 0
@@ -200,9 +245,12 @@ def get_quantum_analysis(h, a):
             if p > best_p: best_p=p; best_s=f"{i}-{j}"
             if xg_h > xg_a and j > i: upset += p
             elif xg_a > xg_h and i > j: upset += p
-    mom_h = sum([(3 if c=="✅" else (1 if c=="➖" else 0)) * w for c, w in zip(h['streak'], [5,4,3,2,1])]) / 45 * 100 if len(h['streak'])==5 else 50
-    mom_a = sum([(3 if c=="✅" else (1 if c=="➖" else 0)) * w for c, w in zip(a['streak'], [5,4,3,2,1])]) / 45 * 100 if len(a['streak'])==5 else 50
-    return {"sniper_score": best_s, "sniper_conf": best_p*100, "upset_risk": upset*100, "xg_h": xg_h, "xg_a": xg_a, "mom_h": mom_h, "mom_a": mom_a}
+            
+    def calc_mom(streak): return sum([(3 if c=="✅" else (1 if c=="➖" else 0)) * w for c, w in zip(streak, [5,4,3,2,1])]) / 45 * 100 if len(streak)==5 else 50
+    mom_h = calc_mom(h['streak']); mom_a = calc_mom(a['streak'])
+    alpha = min(99, best_p * 300)
+    
+    return {"sniper_score": best_s, "sniper_conf": best_p*100, "upset_risk": upset*100, "alpha_index": alpha, "xg_h": xg_h, "xg_a": xg_a, "mom_h": mom_h, "mom_a": mom_a}
 
 def get_coherent_probabilities(h, a):
     lam_h = max(0.1, (h['avg_gf'] + a['avg_ga']) / 2) * 1.15
@@ -217,16 +265,14 @@ def get_coherent_probabilities(h, a):
     tot = ph + pd + pa
     return [pd/tot, ph/tot, pa/tot]
 
-# --- TICKETS (DYNAMIQUES & ANTI-DOUBLONS) ---
+# --- TICKETS (ANTI-DOUBLONS & -2.5 BUTS OPTIMISÉ) ---
 def gen_match_ticket(fix):
     pools = {"WIN":[], "DRAW":[], "OVER":[], "UNDER":[], "BTTS":[]}
     bar = st.sidebar.progress(0, text="Analyse Multidimensionnelle...")
     
-    # NOUVEAU : On mélange la liste des matchs AVANT d'analyser 
-    # Pour garantir des pronostics différents à chaque clic !
     fix_copy = fix.copy()
     random.shuffle(fix_copy)
-    limit = min(len(fix_copy), 30) # On scanne plus large pour avoir du choix
+    limit = min(len(fix_copy), 30) 
     
     for i, f in enumerate(fix_copy[:limit]):
         hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
@@ -245,9 +291,9 @@ def gen_match_ticket(fix):
             elif hs['btts_rate'] >= 60 and as_['btts_rate'] >= 60 and hs['avg_gf'] >= 1.2 and as_['avg_gf'] >= 1.2:
                 pools["BTTS"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🥅 Les 2 marquent", "v": "OUI", "j": "Attaques très performantes combinées à des défenses friables.", "h": hs, "a": as_})
             
-            # Under 2.5 (Critères affinés pour qu'il sorte plus souvent)
-            elif (hs['avg_gf'] + as_['avg_gf']) < 2.5 and hs['avg_ga'] <= 1.3 and as_['avg_ga'] <= 1.3 and h2h_avg < 2.6:
-                pools["UNDER"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🔒 Buts", "v": "-2.5 Buts", "j": "Rencontre fermée prévue. Les deux équipes ont des défenses solides et encaissent très peu.", "h": hs, "a": as_})
+            # Under 2.5 (MODIFIÉ : Détection plus intelligente et fréquente)
+            elif (hs['avg_gf'] + as_['avg_gf']) <= 2.2 or (hs['avg_ga'] <= 1.0 and as_['avg_ga'] <= 1.0):
+                pools["UNDER"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🔒 Buts", "v": "-2.5 Buts", "j": "Rencontre fermée prévue. Les attaques peinent et les défenses sont solides.", "h": hs, "a": as_})
             
             # Over 2.5
             elif (hs['avg_gf'] + as_['avg_gf']) > 3.0 and h2h_avg >= 2.5:
@@ -262,7 +308,7 @@ def gen_match_ticket(fix):
         bar.progress((i+1)/limit)
     bar.empty()
     
-    # ANTI-DOUBLONS
+    # ANTI-DOUBLONS PARFAIT
     seen_matches = set()
     final_ticket = []
     categories = ["DRAW", "UNDER", "BTTS", "WIN", "OVER"]
@@ -307,6 +353,20 @@ def gen_scorer_ticket(fix):
     return scorers[:6]
 
 # --- DIALOGS (FENÊTRES MODALES INTERACTIVES & LISIBLES) ---
+@st.dialog("🗓️ HISTORIQUE DES 5 DERNIERS MATCHS")
+def show_history_dialog(h_name, h_hist, a_name, a_hist):
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f"<h4 style='color:#00D4FF;text-align:center;'>{h_name}</h4>", unsafe_allow_html=True)
+        for m in h_hist[:5]:
+            col = "#00FF99" if m['res']=="✅" else ("#FFA500" if m['res']=="➖" else "#FF4B4B")
+            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col};'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<h4 style='color:#00D4FF;text-align:center;'>{a_name}</h4>", unsafe_allow_html=True)
+        for m in a_hist[:5]:
+            col = "#00FF99" if m['res']=="✅" else ("#FFA500" if m['res']=="➖" else "#FF4B4B")
+            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col};'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
+
 @st.dialog("🧠 RAYON X : ANALYSE DE L'IA")
 def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
     st.markdown(f"<h3>{titre}</h3>", unsafe_allow_html=True)
@@ -321,7 +381,6 @@ def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
         c3.metric(f"Attaque {h['name']}", f"{h['avg_gf']:.1f} buts/m")
         c4.metric(f"Défense {a['name']}", f"{a['avg_ga']:.1f} encaissés")
         
-        # Explications spécifiques
         if "-2.5" in pred: st.info("💡 L'IA anticipe un match très fermé. Les deux équipes ont des défenses qui prennent le pas sur les attaques.")
         elif "+2.5" in pred: st.info("💡 Puissance offensive majeure détectée. L'algorithme prévoit des espaces et des buts.")
         elif "Match Nul" in pred: st.info("💡 Dynamiques identiques. Les probabilités penchent vers une neutralisation mutuelle.")
@@ -381,14 +440,49 @@ def show_player_form_dialog(player):
     random.seed() 
     st.caption("Données extraites des derniers rapports de performance (xG / Shots on target).")
 
+@st.dialog("👑 VERDICT FINAL DE L'ORACLE")
+def show_final_verdict(h, a, p, q, enjeu_str):
+    home_adv = p[1] * 100
+    away_adv = p[2] * 100
+    if q:
+        if q['xg_h'] > q['xg_a'] + 0.5: home_adv += 10
+        if q['xg_a'] > q['xg_h'] + 0.5: away_adv += 10
+    if h['form'] > a['form'] + 0.5: home_adv += 5
+    if a['form'] > h['form'] + 0.5: away_adv += 5
+    
+    if home_adv > away_adv + 15:
+        verdict = f"VICTOIRE {h['name'].upper()}"
+        color = "#00FF99"
+    elif away_adv > home_adv + 15:
+        verdict = f"VICTOIRE {a['name'].upper()}"
+        color = "#00FF99"
+    else:
+        verdict = "MATCH NUL OU INDÉCIS"
+        color = "#FFA500"
+        
+    goals_pred = "+2.5 BUTS" if (h['avg_gf'] + a['avg_gf']) > 2.5 else "-2.5 BUTS"
+    
+    st.markdown(f"<h2 style='color:{color}; text-align:center;'>{verdict}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align:center;'>Tendance Buts : {goals_pred}</h4>", unsafe_allow_html=True)
+    st.divider()
+    st.write("### 🧠 Synthèse des données croisées :")
+    st.write(f"- **Probabilités Mathématiques :** Dom {p[1]*100:.0f}% | Nul {p[0]*100:.0f}% | Ext {p[2]*100:.0f}%")
+    if q:
+        st.write(f"- **Moteur Quantique (xG) :** {q['xg_h']:.2f} vs {q['xg_a']:.2f}")
+        st.write(f"- **Score Exact privilégié :** {q['sniper_score']} (Risque Upset: {q['upset_risk']:.0f}%)")
+    st.write(f"- **Dynamique (Forme) :** {h['form']:.1f} pts/m vs {a['form']:.1f} pts/m")
+    st.write(f"- **Discipline :** {'Attention aux cartons/pénos' if (h['red_cards']+a['red_cards'] > 2) else 'Match fluide attendu'}.")
+    if enjeu_str:
+        st.write(f"- **Contexte & Enjeu :** {enjeu_str}")
+
 # Fonction pour les flèches de forme
 def get_form_arrow(form_pts):
-    if form_pts >= 2.0: return "🟢 ⬆️" # Gagne beaucoup
-    elif form_pts <= 1.0: return "🔴 ⬇️" # Perd beaucoup
-    else: return "⚪ ➡️" # Stable
+    if form_pts >= 2.0: return "🟢 ⬆️"
+    elif form_pts <= 1.0: return "🔴 ⬇️"
+    else: return "⚪ ➡️"
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V34")
+st.title("📱 ORACLE V35")
 
 all_fixtures = get_upcoming_matches()
 
@@ -429,7 +523,7 @@ with st.sidebar:
 
     # TICKETS CLIQUABLES
     if st.session_state.mode == "std" and st.session_state.ticket_data:
-        st.success("✅ TICKET MATCHS (Unique)")
+        st.success("✅ TICKET MATCHS")
         for i, item in enumerate(st.session_state.ticket_data):
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             icon = "⚖️" if "Nul" in item['v'] else ("🔒" if "-2.5" in item['v'] else ("🥅" if "OUI" in item['v'] else ("⚽" if "+2.5" in item['v'] else "🏆")))
@@ -475,7 +569,7 @@ elif match_data != "EMPTY":
             raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
             hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
             q = get_quantum_analysis(hs, as_)
-            st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": [0.33,0.33,0.33], "q": q}
+            st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": get_coherent_probabilities(hs, as_), "q": q}
 
     if st.session_state.analyzed_match_data:
         d = st.session_state.analyzed_match_data
@@ -488,6 +582,10 @@ elif match_data != "EMPTY":
                 <div class="team-box"><img src="{m['teams']['away']['logo']}" class="team-logo"><div class="team-name">{m['teams']['away']['name']}</div></div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # NOUVEAU : BOUTON HISTORIQUE SOUS LE HEADER
+            if st.button("🔍 Voir les 5 derniers résultats des deux équipes", use_container_width=True):
+                show_history_dialog(m['teams']['home']['name'], d['raw_h']['history'], m['teams']['away']['name'], d['raw_a']['history'])
             
             st.markdown("### ⚙️ Options d'Analyse")
             filter_opt = st.radio("Baser les statistiques sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, key="main_filter")
@@ -584,7 +682,7 @@ elif match_data != "EMPTY":
                     st.write("#### 💰 Gestion de Bankroll")
                     bankroll = st.number_input("Entrez votre Bankroll totale (€)", min_value=10.0, value=100.0, step=10.0)
                     num_bets = st.number_input("Nombre de matchs à parier aujourd'hui", min_value=1, value=3, step=1)
-                    conf = d['q']['sniper_conf'] if st.session_state.quantum_mode else max(d['p']) * 100
+                    conf = d.get('q', {}).get('sniper_conf', max(d['p']) * 100) if st.session_state.quantum_mode else max(d['p']) * 100
                     
                     panier_max_par_pari = bankroll / num_bets
                     mise_calculee = panier_max_par_pari * (conf / 100)
@@ -596,7 +694,7 @@ elif match_data != "EMPTY":
                 with t5:
                     st.write("#### 🎯 Enjeu et Classement")
                     standings = get_standings(m['league']['id'])
-                    
+                    enjeu_str = ""
                     if standings:
                         rank_h, rank_a = None, None
                         for team in standings:
@@ -605,30 +703,35 @@ elif match_data != "EMPTY":
                             
                         if rank_h and rank_a:
                             c_e1, c_e2 = st.columns(2)
-                            
-                            # Team Home
                             arr_h = get_form_arrow(h['form'])
                             c_e1.markdown(f"**{h['name']}** {arr_h}")
                             c_e1.write(f"Rang : **{rank_h['rank']}ème** ({rank_h['points']} pts)")
                             if rank_h['description']: c_e1.caption(f"Objectif: {rank_h['description']}")
                             
-                            # Team Away
                             arr_a = get_form_arrow(a['form'])
                             c_e2.markdown(f"**{a['name']}** {arr_a}")
                             c_e2.write(f"Rang : **{rank_a['rank']}ème** ({rank_a['points']} pts)")
                             if rank_a['description']: c_e2.caption(f"Objectif: {rank_a['description']}")
                             
-                            # IA Context
                             st.markdown("---")
                             if rank_h['rank'] <= 4 or rank_a['rank'] <= 4:
-                                st.info("🏆 **Analyse IA :** Match à fort enjeu pour le haut du tableau. Les équipes de tête jouent souvent la sécurité à l'extérieur mais poussent à domicile.")
+                                enjeu_str = "Choc de haut de tableau avec un enjeu majeur pour le titre ou l'Europe."
+                                st.info(f"🏆 **Analyse IA :** {enjeu_str}")
                             elif rank_h['rank'] >= len(standings)-4 or rank_a['rank'] >= len(standings)-4:
-                                st.warning("⚠️ **Analyse IA :** Match critique pour le maintien. Attention, ces matchs sont souvent très tendus et propices aux cartons et aux matchs nuls fermés.")
+                                enjeu_str = "Match sous très haute tension pour le maintien."
+                                st.warning(f"⚠️ **Analyse IA :** {enjeu_str} Ces matchs sont souvent très tendus et propices aux cartons et aux matchs nuls fermés.")
                             else:
-                                st.success("⚖️ **Analyse IA :** Match de milieu de tableau (Ventre mou). Les équipes ont moins de pression, ce qui favorise souvent des matchs ouverts avec des buts.")
-                        else:
-                            st.write("Équipes non trouvées dans le classement principal.")
+                                enjeu_str = "Match de milieu de tableau (Ventre mou)."
+                                st.success(f"⚖️ **Analyse IA :** {enjeu_str} Les équipes ont moins de pression, ce qui favorise souvent des matchs ouverts avec des buts.")
+                        else: st.write("Équipes non trouvées dans le classement principal.")
                     else:
-                        st.info("📊 Classement non disponible pour cette compétition (Il s'agit probablement d'une Coupe).")
+                        enjeu_str = "Classement non disponible pour cette compétition (Il s'agit probablement d'une Coupe)."
+                        st.info(f"📊 {enjeu_str}")
+                        
+                # NOUVEAU : BOUTON ANALYSE FINALE TOUT EN BAS
+                st.markdown("---")
+                if st.button("🔮 ANALYSE FINALE COMPLÈTE", type="primary", use_container_width=True):
+                    show_final_verdict(h, a, d['p'], d.get('q'), enjeu_str)
+                    
             else:
                 st.warning("Données insuffisantes pour cette période.")
