@@ -10,7 +10,7 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V36 (MA SÉLECTION & CRASH TEST IA) ---
+# --- 1. CONFIGURATION V36 (PERSISTANCE & ANALYSE AUTO) ---
 st.set_page_config(page_title="Oracle V36", layout="wide", page_icon="📱")
 
 st.markdown("""
@@ -43,6 +43,10 @@ st.markdown("""
     .q-box { background: #0b1016; border: 1px solid #00D4FF; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
     .q-title { color: #00D4FF !important; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
 
+    /* BOUTON VALIDER & AUTO */
+    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; }
+    button[kind="secondary"] { background: #262935 !important; color: white !important; border: 1px solid #444 !important; font-weight: bold !important; }
+
     /* HEADER MATCH */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
@@ -55,18 +59,11 @@ st.markdown("""
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
     .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; }
-    .info-icon { position: absolute; top: 1px; right: 2px; font-size: 0.8rem; cursor: pointer; color: #00FF99 !important; }
     .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; align-items: center; }
     .stat-label { color: #aaa; font-size: 0.8rem; } .stat-val { font-weight: bold; font-size: 0.9rem; }
-
-    /* GENERAL */
-    .stButton > button { background-color: #262935; color: white !important; border: 1px solid #444; border-radius: 8px; width: 100%; }
-    div[data-testid="stSidebarUserContent"] .stButton > button { border: none; font-weight: bold; }
-    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
     
-    @media only screen and (max-width: 640px) {
-        .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
-    }
+    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
+    @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -74,18 +71,19 @@ API_KEY = "4d3c1dbf76600a937722ff6425d450ee"
 HEADERS = {'x-rapidapi-host': "v3.football.api-sports.io", 'x-rapidapi-key': API_KEY}
 LEAGUE_IDS = [2, 3, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323, 848]
 
-# STATES
+# STATES INITIAUX
 if 'analyzed_match_data' not in st.session_state: st.session_state.analyzed_match_data = None
 if 'ticket_data' not in st.session_state: st.session_state.ticket_data = None
 if 'scorer_ticket' not in st.session_state: st.session_state.scorer_ticket = None
 if 'mode' not in st.session_state: st.session_state.mode = "std" 
 if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
 
-# STATES MA SÉLECTION
-if 'user_selections' not in st.session_state: st.session_state.user_selections = {}
+# STATES MA SÉLECTION & PERSISTANCE
+if 'persisted_selections' not in st.session_state: st.session_state.persisted_selections = {}
 if 'selection_validated' not in st.session_state: st.session_state.selection_validated = False
 if 'selection_analyzed' not in st.session_state: st.session_state.selection_analyzed = False
 if 'selection_ai_results' not in st.session_state: st.session_state.selection_ai_results = {}
+if 'auto_analyzed' not in st.session_state: st.session_state.auto_analyzed = False
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
@@ -101,8 +99,7 @@ def get_upcoming_matches():
             r = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"league": l, "season": "2025", "from": today, "to": end, "timezone": "Europe/Paris"}).json()
             if 'response' in r:
                 for f in r['response']:
-                    if f['fixture']['status']['short'] in ['NS', 'TBD']:
-                        clean_fixtures.append(f)
+                    if f['fixture']['status']['short'] in ['NS', 'TBD']: clean_fixtures.append(f)
         except: pass
     return clean_fixtures
 
@@ -142,8 +139,7 @@ def get_deep_stats(tid):
 def get_standings(league_id):
     try:
         r = requests.get("https://v3.football.api-sports.io/standings", headers=HEADERS, params={"league": league_id, "season": "2025"}).json()
-        if 'response' in r and len(r['response']) > 0:
-            return r['response'][0]['league']['standings'][0]
+        if 'response' in r and len(r['response']) > 0: return r['response'][0]['league']['standings'][0]
     except: pass
     return None
 
@@ -151,7 +147,6 @@ def process_stats_by_filter(raw_stats, limit):
     if not raw_stats or 'history' not in raw_stats: return None
     data = raw_stats['history'][:limit]
     if not data: return None
-    
     gs = [x['gf'] for x in data]; gc = [x['ga'] for x in data]
     avg_gf = sum(gs)/len(data) if data else 0
     avg_ga = sum(gc)/len(data) if data else 0
@@ -180,7 +175,7 @@ def get_h2h_stats(h_id, a_id):
     if not goals: return None
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
-# --- INTELLIGENCE ---
+# --- INTELLIGENCE & SCENARIOS ---
 def simulate_10k_scenarios(h_stats, a_stats):
     h_lam = max(0.1, (h_stats['avg_gf'] + a_stats['avg_ga']) / 2)
     a_lam = max(0.1, (a_stats['avg_gf'] + h_stats['avg_ga']) / 2)
@@ -244,16 +239,13 @@ def gen_match_ticket(fix):
     fix_copy = fix.copy()
     random.shuffle(fix_copy)
     limit = min(len(fix_copy), 30) 
-    
     for i, f in enumerate(fix_copy[:limit]):
         hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-        
         if raw_h and raw_a:
             hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
             h2h = get_h2h_stats(hid, aid)
             h2h_avg = h2h['avg_goals'] if h2h else (hs['avg_gf'] + as_['avg_gf'])
-            
             if abs(hs['form'] - as_['form']) <= 0.4 and (hs['draw_rate'] > 30 or as_['draw_rate'] > 30):
                 pools["DRAW"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "⚖️ Résultat", "v": "Match Nul", "j": "Niveau très équilibré et forte tendance historique au nul.", "h": hs, "a": as_})
             elif hs['btts_rate'] >= 60 and as_['btts_rate'] >= 60 and hs['avg_gf'] >= 1.2 and as_['avg_gf'] >= 1.2:
@@ -268,28 +260,21 @@ def gen_match_ticket(fix):
                 pools["WIN"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "🏆 Résultat", "v": f"Victoire {as_['name']}", "j": "Dynamique impressionnante à l'extérieur face à une équipe en difficulté.", "h": hs, "a": as_})
         bar.progress((i+1)/limit)
     bar.empty()
-    
-    seen_matches = set()
-    final_ticket = []
+    seen_matches = set(); final_ticket = []
     categories = ["DRAW", "UNDER", "BTTS", "WIN", "OVER"]
     random.shuffle(categories)
-    
     for cat in categories:
         if pools[cat]:
             random.shuffle(pools[cat])
             for bet in pools[cat]:
                 if bet['m'] not in seen_matches:
-                    final_ticket.append(bet)
-                    seen_matches.add(bet['m'])
-                    break
-                    
+                    final_ticket.append(bet); seen_matches.add(bet['m']); break
     all_remaining = []
     for cat in categories: all_remaining.extend(pools[cat])
     random.shuffle(all_remaining)
     for bet in all_remaining:
         if bet['m'] not in seen_matches:
-            final_ticket.append(bet)
-            seen_matches.add(bet['m'])
+            final_ticket.append(bet); seen_matches.add(bet['m'])
         if len(final_ticket) >= 6: break
     return final_ticket
 
@@ -310,7 +295,18 @@ def gen_scorer_ticket(fix):
     bar.empty()
     return scorers[:6]
 
-# --- DIALOGS ---
+# --- FONCTION DE MISE A JOUR DES SÉLECTIONS ---
+def update_user_selection(fix_id, match_str, home_id, away_id, league_id):
+    val = st.session_state[f"rad_{fix_id}"]
+    if val != "Aucun":
+        st.session_state.persisted_selections[fix_id] = {
+            "match": match_str, "home_id": home_id, "away_id": away_id, "league_id": league_id, "user_pick": val
+        }
+    else:
+        if fix_id in st.session_state.persisted_selections:
+            del st.session_state.persisted_selections[fix_id]
+
+# --- DIALOGS (FENÊTRES MODALES INTERACTIVES) ---
 @st.dialog("🗓️ HISTORIQUE DES 5 DERNIERS MATCHS")
 def show_history_dialog(h_name, h_hist, a_name, a_hist):
     c1, c2 = st.columns(2)
@@ -374,13 +370,8 @@ def show_full_10k_graph(scores):
             data.append({"Itérations": s, "Probabilité (%)": val, "Score": score_str})
             
     df = pd.DataFrame(data)
-    ch = alt.Chart(df).mark_line(strokeWidth=3).encode(
-        x='Itérations:Q', 
-        y=alt.Y('Probabilité (%):Q', scale=alt.Scale(zero=False)), 
-        color=alt.Color('Score:N', scale=alt.Scale(scheme='set2'))
-    ).properties(height=280)
+    ch = alt.Chart(df).mark_line(strokeWidth=3).encode(x='Itérations:Q', y=alt.Y('Probabilité (%):Q', scale=alt.Scale(zero=False)), color=alt.Color('Score:N', scale=alt.Scale(scheme='set2'))).properties(height=280)
     st.altair_chart(ch, use_container_width=True)
-    
     st.divider()
     st.write("### 🏆 Bilan Final (10 000 Matchs Joués)")
     for score_str, count in scores:
@@ -400,26 +391,18 @@ def show_player_form_dialog(player):
 
 @st.dialog("👑 VERDICT FINAL DE L'ORACLE")
 def show_final_verdict(h, a, p, q, enjeu_str):
-    home_adv = p[1] * 100
-    away_adv = p[2] * 100
+    home_adv = p[1] * 100; away_adv = p[2] * 100
     if q:
         if q['xg_h'] > q['xg_a'] + 0.5: home_adv += 10
         if q['xg_a'] > q['xg_h'] + 0.5: away_adv += 10
     if h['form'] > a['form'] + 0.5: home_adv += 5
     if a['form'] > h['form'] + 0.5: away_adv += 5
     
-    if home_adv > away_adv + 15:
-        verdict = f"VICTOIRE {h['name'].upper()}"
-        color = "#00FF99"
-    elif away_adv > home_adv + 15:
-        verdict = f"VICTOIRE {a['name'].upper()}"
-        color = "#00FF99"
-    else:
-        verdict = "MATCH NUL OU INDÉCIS"
-        color = "#FFA500"
+    if home_adv > away_adv + 15: verdict = f"VICTOIRE {h['name'].upper()}"; color = "#00FF99"
+    elif away_adv > home_adv + 15: verdict = f"VICTOIRE {a['name'].upper()}"; color = "#00FF99"
+    else: verdict = "MATCH NUL OU INDÉCIS"; color = "#FFA500"
         
     goals_pred = "+2.5 BUTS" if (h['avg_gf'] + a['avg_gf']) > 2.5 else "-2.5 BUTS"
-    
     st.markdown(f"<h2 style='color:{color}; text-align:center;'>{verdict}</h2>", unsafe_allow_html=True)
     st.markdown(f"<h4 style='text-align:center;'>Tendance Buts : {goals_pred}</h4>", unsafe_allow_html=True)
     st.divider()
@@ -430,8 +413,7 @@ def show_final_verdict(h, a, p, q, enjeu_str):
         st.write(f"- **Score Exact privilégié :** {q['sniper_score']} (Risque Upset: {q['upset_risk']:.0f}%)")
     st.write(f"- **Dynamique (Forme) :** {h['form']:.1f} pts/m vs {a['form']:.1f} pts/m")
     st.write(f"- **Discipline :** {'Attention aux cartons/pénos' if (h['red_cards']+a['red_cards'] > 2) else 'Match fluide attendu'}.")
-    if enjeu_str:
-        st.write(f"- **Contexte & Enjeu :** {enjeu_str}")
+    if enjeu_str: st.write(f"- **Contexte & Enjeu :** {enjeu_str}")
 
 def get_form_arrow(form_pts):
     if form_pts >= 2.0: return "🟢 ⬆️"
@@ -459,9 +441,9 @@ with st.sidebar:
     if st.button("📝 MA SÉLECTION"):
         st.session_state.mode = "my_selection"
         st.session_state.selection_validated = False
-        st.session_state.selection_analyzed = False
+        st.session_state.auto_analyzed = False
 
-    # TICKETS CLIQUABLES (Si mode = std ou scorer)
+    # TICKETS CLIQUABLES
     if st.session_state.mode == "std" and st.session_state.ticket_data:
         st.success("✅ TICKET MATCHS (Unique)")
         for i, item in enumerate(st.session_state.ticket_data):
@@ -483,113 +465,143 @@ if st.session_state.mode == "my_selection":
     st.markdown("### 📝 MA SÉLECTION PERSONNELLE")
     
     if all_fixtures:
-        if not st.session_state.selection_validated:
+        if not st.session_state.selection_validated and not st.session_state.auto_analyzed:
             dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
-            sel_date_my_sel = st.selectbox("📅 Choisissez la date de vos matchs", dates, key="my_sel_date")
+            sel_date_my_sel = st.selectbox("📅 Date", dates)
             
             matches_of_day = [f for f in all_fixtures if f['fixture']['date'][:10] == sel_date_my_sel]
             
             if not matches_of_day:
                 st.info("Aucun match pour cette date.")
             else:
-                with st.form("form_my_selection"):
-                    st.write("Faites vos choix (laissez sur 'Aucun' pour ignorer un match) :")
-                    for f in matches_of_day:
-                        fix_id = str(f['fixture']['id'])
-                        h_name = f['teams']['home']['name']
-                        a_name = f['teams']['away']['name']
-                        
-                        st.markdown(f"<div style='background:#1a1c24; padding:10px; border-radius:8px; margin-bottom:5px; border:1px solid #333;'>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='color:#00FF99; font-weight:bold; text-align:center; margin-bottom:5px;'>{h_name} vs {a_name}</div>", unsafe_allow_html=True)
-                        st.radio(
-                            "Prono",
-                            ["Aucun", f"Victoire {h_name}", "Match Nul", f"Victoire {a_name}"],
-                            horizontal=True,
-                            key=f"sel_{fix_id}",
-                            label_visibility="collapsed"
-                        )
-                        st.markdown("</div>", unsafe_allow_html=True)
-                        
-                    submitted = st.form_submit_button("✅ VALIDER MA SÉLECTION", use_container_width=True)
+                st.write("Faites vos choix :")
+                for f in matches_of_day:
+                    fix_id = str(f['fixture']['id'])
+                    h_name = f['teams']['home']['name']
+                    a_name = f['teams']['away']['name']
                     
-                    if submitted:
-                        saved = {}
-                        for f in matches_of_day:
-                            fix_id = str(f['fixture']['id'])
-                            val = st.session_state[f"sel_{fix_id}"]
-                            if val != "Aucun":
-                                saved[fix_id] = {
-                                    "match": f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}",
-                                    "home_id": f['teams']['home']['id'],
-                                    "away_id": f['teams']['away']['id'],
-                                    "league_id": f['league']['id'],
-                                    "user_pick": val
-                                }
-                        st.session_state.user_selections = saved
+                    st.markdown(f"<div style='background:#1a1c24; padding:10px; border-radius:8px; margin-bottom:5px; border:1px solid #333;'>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='color:#00FF99; font-weight:bold; text-align:center; margin-bottom:5px;'>{h_name} vs {a_name}</div>", unsafe_allow_html=True)
+                    
+                    # Logique de Persistance
+                    opts = ["Aucun", f"Victoire {h_name}", "Match Nul", f"Victoire {a_name}"]
+                    prev_pick = st.session_state.persisted_selections.get(fix_id, {}).get("user_pick", "Aucun")
+                    default_idx = opts.index(prev_pick) if prev_pick in opts else 0
+                    
+                    st.radio(
+                        "Prono", opts, index=default_idx, horizontal=True, key=f"rad_{fix_id}", 
+                        on_change=update_user_selection, 
+                        args=(fix_id, f"{h_name} vs {a_name}", f['teams']['home']['id'], f['teams']['away']['id'], f['league']['id']),
+                        label_visibility="collapsed"
+                    )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True):
                         st.session_state.selection_validated = True
+                        st.session_state.auto_analyzed = False
+                        st.rerun()
+                with c_btn2:
+                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True):
+                        st.session_state.selected_auto_date = sel_date_my_sel
+                        st.session_state.auto_analyzed = True
+                        st.session_state.selection_validated = False
                         st.rerun()
 
-        elif st.session_state.selection_validated and not st.session_state.selection_analyzed:
-            st.success("✅ Vos pronostics ont été enregistrés.")
-            if not st.session_state.user_selections:
+        # AFFICHAGE VALIDATION CRASH TEST
+        elif st.session_state.selection_validated:
+            st.success("✅ Sélection enregistrée.")
+            if not st.session_state.persisted_selections:
                 st.warning("Vous n'avez fait aucun pronostic.")
                 if st.button("⬅️ Retour"):
-                    st.session_state.selection_validated = False
-                    st.rerun()
+                    st.session_state.selection_validated = False; st.rerun()
             else:
-                st.write("#### Vos choix à valider :")
-                for fix_id, data in st.session_state.user_selections.items():
-                    st.markdown(f"<div style='background:#1a1c24; padding:10px; border-radius:8px; border-left:4px solid #00D4FF; margin-bottom:5px;'><b>{data['match']}</b><br/>👉 {data['user_pick']}</div>", unsafe_allow_html=True)
-                
-                st.markdown("<br/>", unsafe_allow_html=True)
-                if st.button("🧠 CRASH TEST : LANCER L'ANALYSE IA", type="primary", use_container_width=True):
-                    st.session_state.selection_analyzed = True
-                    ai_results = {}
-                    with st.spinner("L'IA scanne vos pronostics et compare avec ses algorithmes..."):
-                        for fix_id, data in st.session_state.user_selections.items():
-                            hid, aid = data['home_id'], data['away_id']
-                            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-                            if raw_h and raw_a:
-                                hs = process_stats_by_filter(raw_h, 10)
-                                as_ = process_stats_by_filter(raw_a, 10)
-                                p = get_coherent_probabilities(hs, as_)
-                                best_idx = np.argmax(p)
-                                ai_pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
-                                justif = gen_smart_justif("🏆 Résultat", ai_pick, hs, as_)
-                                
-                                ai_results[fix_id] = {
-                                    "ai_pick": ai_pick, "prob": p[best_idx]*100, "justif": justif,
-                                    "match": data['match'], "user_pick": data['user_pick']
-                                }
-                    st.session_state.selection_ai_results = ai_results
-                    st.rerun()
+                if not st.session_state.selection_analyzed:
+                    st.write("#### Vos choix à valider :")
+                    for fix_id, data in st.session_state.persisted_selections.items():
+                        st.markdown(f"<div style='background:#1a1c24; padding:10px; border-radius:8px; border-left:4px solid #00D4FF; margin-bottom:5px;'><b>{data['match']}</b><br/>👉 {data['user_pick']}</div>", unsafe_allow_html=True)
                     
-                if st.button("Modifier ma sélection"):
-                    st.session_state.selection_validated = False
-                    st.rerun()
-
-        elif st.session_state.selection_analyzed:
-            st.markdown("### 🤖 VERDICT DE L'IA SUR VOTRE TICKET")
-            for fix_id, res in st.session_state.selection_ai_results.items():
-                st.markdown(f"#### {res['match']}")
-                st.write(f"👤 Votre choix : **{res['user_pick']}**")
+                    if st.button("🧠 CRASH TEST : LANCER L'ANALYSE IA", type="primary", use_container_width=True):
+                        ai_results = {}
+                        with st.spinner("L'IA scanne vos pronostics..."):
+                            for fix_id, data in st.session_state.persisted_selections.items():
+                                hid, aid = data['home_id'], data['away_id']
+                                raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                                if raw_h and raw_a:
+                                    hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                                    p = get_coherent_probabilities(hs, as_)
+                                    best_idx = np.argmax(p)
+                                    ai_pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
+                                    ai_results[fix_id] = {"ai_pick": ai_pick, "prob": p[best_idx]*100, "justif": gen_smart_justif("🏆", ai_pick, hs, as_), "match": data['match'], "user_pick": data['user_pick']}
+                        st.session_state.selection_ai_results = ai_results
+                        st.session_state.selection_analyzed = True
+                        st.rerun()
+                        
+                    if st.button("Modifier ma sélection"):
+                        st.session_state.selection_validated = False; st.rerun()
                 
-                if res['user_pick'] == res['ai_pick']:
-                    st.success(f"✅ L'IA valide votre choix ! ({res['prob']:.0f}% de confiance mathématique)")
-                    st.caption(f"Argument IA : {res['justif']}")
                 else:
-                    st.warning(f"⚠️ DANGER : L'IA suggère plutôt : **{res['ai_pick']}** ({res['prob']:.0f}% de confiance)")
-                    st.caption(f"Argument IA de correction : {res['justif']}")
-                st.markdown("---")
+                    st.markdown("### 🤖 VERDICT DE L'IA SUR VOTRE TICKET")
+                    for fix_id, res in st.session_state.selection_ai_results.items():
+                        st.markdown(f"#### {res['match']}")
+                        st.write(f"👤 Votre choix : **{res['user_pick']}**")
+                        if res['user_pick'] == res['ai_pick']:
+                            st.success(f"✅ L'IA VALIDE ! ({res['prob']:.0f}% de confiance mathématique)")
+                            st.caption(f"Argument IA : {res['justif']}")
+                        else:
+                            st.warning(f"⚠️ DANGER : L'IA suggère plutôt : **{res['ai_pick']}** ({res['prob']:.0f}% de confiance)")
+                            st.caption(f"Argument IA de correction : {res['justif']}")
+                        st.markdown("---")
+                    
+                    if st.button("🔄 Refaire une sélection"):
+                        st.session_state.persisted_selections = {}
+                        st.session_state.selection_validated = False
+                        st.session_state.selection_analyzed = False
+                        st.rerun()
+
+        # AFFICHAGE ANALYSE AUTO GLOBALE
+        elif st.session_state.auto_analyzed:
+            st.markdown("### 🤖 ANALYSE AUTOMATIQUE DE LA JOURNÉE")
+            matches_to_analyze = [f for f in all_fixtures if f['fixture']['date'][:10] == st.session_state.selected_auto_date]
             
-            if st.button("🔄 Refaire un ticket personnel"):
-                st.session_state.selection_validated = False
-                st.session_state.selection_analyzed = False
-                st.session_state.user_selections = {}
-                st.session_state.selection_ai_results = {}
+            with st.spinner("L'IA dissèque tous les matchs..."):
+                for f in matches_to_analyze:
+                    hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
+                    h_name, a_name = f['teams']['home']['name'], f['teams']['away']['name']
+                    raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                    if raw_h and raw_a:
+                        hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                        p = get_coherent_probabilities(hs, as_)
+                        q = get_quantum_analysis(hs, as_)
+                        
+                        best_idx = np.argmax(p)
+                        ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
+                        conf = p[best_idx]*100
+                        justif = gen_smart_justif("🏆", ai_pick, hs, as_)
+                        
+                        st.markdown(f"""
+                        <div style='background:#11141c; padding:15px; border-radius:12px; border-left: 5px solid #00FF99; margin-bottom:15px;'>
+                            <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;'>
+                                <h4 style='margin:0; color:white;'>{h_name} <span style='color:#aaa;'>vs</span> {a_name}</h4>
+                                <span style='background:#1a1c24; padding:4px 8px; border-radius:5px; font-weight:bold; color:#00FF99;'>{conf:.0f}%</span>
+                            </div>
+                            <p style='font-size:1.1rem; font-weight:bold; color:#00FF99; margin:0 0 5px 0;'>🎯 {ai_pick}</p>
+                            <p style='color:#e0e0e0; font-size:0.9rem; margin:0 0 10px 0;'><i>{justif}</i></p>
+                            <div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px;'>
+                                <div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div>
+                                <div><b>Forme :</b> <span style='color:white;'>{hs['form']:.1f} - {as_['form']:.1f} pts</span></div>
+                                <div><b>Buts :</b> <span style='color:white;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            if st.button("⬅️ Retour à la sélection"):
+                st.session_state.auto_analyzed = False
                 st.rerun()
     else:
-        st.info("Aucun match prévu pour les prochains jours.")
+        st.info("Aucun match disponible.")
 
 # --- AFFICHAGE PRINCIPAL : STANDARD / QUANTUM ---
 elif st.session_state.mode != "my_selection":
@@ -794,10 +806,10 @@ elif st.session_state.mode != "my_selection":
                                     st.info(f"🏆 **Analyse IA :** {enjeu_str}")
                                 elif rank_h['rank'] >= len(standings)-4 or rank_a['rank'] >= len(standings)-4:
                                     enjeu_str = "Match sous très haute tension pour le maintien."
-                                    st.warning(f"⚠️ **Analyse IA :** {enjeu_str} Ces matchs sont souvent très tendus et propices aux cartons et aux matchs nuls fermés.")
+                                    st.warning(f"⚠️ **Analyse IA :** {enjeu_str}")
                                 else:
                                     enjeu_str = "Match de milieu de tableau (Ventre mou)."
-                                    st.success(f"⚖️ **Analyse IA :** {enjeu_str} Les équipes ont moins de pression, ce qui favorise souvent des matchs ouverts avec des buts.")
+                                    st.success(f"⚖️ **Analyse IA :** {enjeu_str}")
                             else: st.write("Équipes non trouvées dans le classement principal.")
                         else:
                             enjeu_str = "Classement non disponible pour cette compétition (Il s'agit probablement d'une Coupe)."
