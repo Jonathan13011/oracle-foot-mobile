@@ -10,8 +10,8 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V37 (GRAPHIQUES DE COMPARAISON) ---
-st.set_page_config(page_title="Oracle V37", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V38 (GRAPHIQUES DARK MODE STYLÉS) ---
+st.set_page_config(page_title="Oracle V38", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -70,6 +70,9 @@ st.markdown("""
     .comp-table th { background-color: #262935; color: #00FF99 !important; }
     .comp-table tr:nth-child(even) { background-color: #1a1c24; }
     
+    /* ALTAIR DARK THEME FIXES */
+    canvas { border-radius: 8px; }
+
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; } }
 </style>
 """, unsafe_allow_html=True)
@@ -82,7 +85,7 @@ LEAGUE_IDS = [2, 3, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323, 848]
 if 'analyzed_match_data' not in st.session_state: st.session_state.analyzed_match_data = None
 if 'ticket_data' not in st.session_state: st.session_state.ticket_data = None
 if 'scorer_ticket' not in st.session_state: st.session_state.scorer_ticket = None
-if 'mode' not in st.session_state: st.session_state.mode = "std" # std, scorer, my_selection, graphs
+if 'mode' not in st.session_state: st.session_state.mode = "std" 
 if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
 
 # STATES MA SÉLECTION & PERSISTANCE
@@ -94,6 +97,9 @@ if 'auto_analyzed' not in st.session_state: st.session_state.auto_analyzed = Fal
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
+
+# --- CONFIGURATION ALTAIR DARK ---
+dark_axis_config = alt.Axis(labelColor='#E0E0E0', titleColor='#E0E0E0', gridColor='#333333', domainColor='#555555', tickColor='#555555')
 
 # --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
@@ -120,12 +126,10 @@ def get_deep_stats(tid):
         gf = (m['goals']['home'] if h else m['goals']['away']) or 0
         ga = (m['goals']['away'] if h else m['goals']['home']) or 0
         res = "✅" if gf > ga else ("➖" if gf == ga else "❌")
-        
         hf = m['score']['halftime']['home'] if h else m['score']['halftime']['away']
         ha = m['score']['halftime']['away'] if h else m['score']['halftime']['home']
         ht_d = 1 if hf is not None and ha is not None and hf == ha else 0
         ft_d = 1 if gf == ga else 0
-        
         s_70, c_70 = 0, 0
         if 'events' in m and m['events']:
             for ev in m['events']:
@@ -137,9 +141,7 @@ def get_deep_stats(tid):
         else:
             if gf > 0 and random.random() > 0.5: s_70 += 1
             if ga > 0 and random.random() > 0.5: c_70 += 1
-
         history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0})
-        
     return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], "id": tid, "history": history, "league_id": d[0]['league']['id']}
 
 @st.cache_data(ttl=3600)
@@ -184,30 +186,14 @@ def get_h2h_stats(h_id, a_id):
 
 # --- INTELLIGENCE AVANCÉE (POUR GRAPHIQUES) ---
 def get_advanced_mock_data(h, a):
-    # Génère des données avancées réalistes basées sur la force de l'équipe
     random.seed(h['id'])
     h_poss = 50 + (h['form'] - a['form']) * 10 + random.uniform(-3, 3)
-    h_poss = min(75, max(25, h_poss))
-    a_poss = 100 - h_poss
-    
-    h_xg = h['avg_gf'] * random.uniform(0.9, 1.2)
-    a_xg = a['avg_gf'] * random.uniform(0.9, 1.2)
-    
-    h_shots = h['avg_gf'] * 6.5 + random.uniform(2, 5)
-    a_shots = a['avg_gf'] * 6.5 + random.uniform(2, 5)
-    
-    h_ppda = max(5, 15 - (h['form'] * 2) + random.uniform(-2, 2)) # Plus bas = pressing plus intense
-    a_ppda = max(5, 15 - (a['form'] * 2) + random.uniform(-2, 2))
-    
+    h_poss = min(75, max(25, h_poss)); a_poss = 100 - h_poss
+    h_xg = h['avg_gf'] * random.uniform(0.9, 1.2); a_xg = a['avg_gf'] * random.uniform(0.9, 1.2)
+    h_shots = h['avg_gf'] * 6.5 + random.uniform(2, 5); a_shots = a['avg_gf'] * 6.5 + random.uniform(2, 5)
+    h_ppda = max(5, 15 - (h['form'] * 2) + random.uniform(-2, 2)); a_ppda = max(5, 15 - (a['form'] * 2) + random.uniform(-2, 2))
     random.seed()
-    return {
-        "h_poss": h_poss, "a_poss": a_poss,
-        "h_xg": h_xg, "a_xg": a_xg,
-        "h_shots": h_shots, "a_shots": a_shots,
-        "h_sot": h_shots * random.uniform(0.3, 0.45), "a_sot": a_shots * random.uniform(0.3, 0.45),
-        "h_xga": h['avg_ga'] * random.uniform(0.8, 1.1), "a_xga": a['avg_ga'] * random.uniform(0.8, 1.1),
-        "h_ppda": h_ppda, "a_ppda": a_ppda
-    }
+    return {"h_poss": h_poss, "a_poss": a_poss, "h_xg": h_xg, "a_xg": a_xg, "h_shots": h_shots, "a_shots": a_shots, "h_sot": h_shots * random.uniform(0.3, 0.45), "a_sot": a_shots * random.uniform(0.3, 0.45), "h_xga": h['avg_ga'] * random.uniform(0.8, 1.1), "a_xga": a['avg_ga'] * random.uniform(0.8, 1.1), "h_ppda": h_ppda, "a_ppda": a_ppda}
 
 def simulate_10k_scenarios(h_stats, a_stats):
     h_lam = max(0.1, (h_stats['avg_gf'] + a_stats['avg_ga']) / 2)
@@ -270,7 +256,6 @@ def gen_match_ticket(fix):
     pools = {"WIN":[], "DRAW":[], "OVER":[], "UNDER":[], "BTTS":[]}
     bar = st.sidebar.progress(0, text="Analyse Multidimensionnelle...")
     fix_copy = fix.copy(); random.shuffle(fix_copy); limit = min(len(fix_copy), 30) 
-    
     for i, f in enumerate(fix_copy[:limit]):
         hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
@@ -278,7 +263,6 @@ def gen_match_ticket(fix):
             hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
             h2h = get_h2h_stats(hid, aid)
             h2h_avg = h2h['avg_goals'] if h2h else (hs['avg_gf'] + as_['avg_gf'])
-            
             if abs(hs['form'] - as_['form']) <= 0.4 and (hs['draw_rate'] > 30 or as_['draw_rate'] > 30):
                 pools["DRAW"].append({"m": f"{hs['name']} vs {as_['name']}", "t": "⚖️ Résultat", "v": "Match Nul", "j": "Niveau très équilibré et forte tendance historique au nul.", "h": hs, "a": as_})
             elif hs['btts_rate'] >= 60 and as_['btts_rate'] >= 60 and hs['avg_gf'] >= 1.2 and as_['avg_gf'] >= 1.2:
@@ -394,8 +378,17 @@ def show_full_10k_graph(scores):
             if s == 10000: val = target_pct
             data.append({"Itérations": s, "Probabilité (%)": val, "Score": score_str})
     df = pd.DataFrame(data)
-    ch = alt.Chart(df).mark_line(strokeWidth=3).encode(x='Itérations:Q', y=alt.Y('Probabilité (%):Q', scale=alt.Scale(zero=False)), color=alt.Color('Score:N', scale=alt.Scale(scheme='set2'))).properties(height=280)
+    
+    # GRAPHIQUE DARK MODE
+    base = alt.Chart(df).encode(
+        x=alt.X('Itérations:Q', axis=dark_axis_config),
+        y=alt.Y('Probabilité (%):Q', scale=alt.Scale(zero=False), axis=dark_axis_config),
+        color=alt.Color('Score:N', scale=alt.Scale(scheme='set2'), legend=alt.Legend(labelColor='#E0E0E0'))
+    )
+    ch = base.mark_line(strokeWidth=3) + base.mark_area(opacity=0.2)
+    ch = ch.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
     st.altair_chart(ch, use_container_width=True)
+    
     st.divider()
     st.write("### 🏆 Bilan Final")
     for score_str, count in scores: st.markdown(f"- **Score {score_str}** : Apparu **{count} fois** ({(count/10000)*100:.1f}%)")
@@ -443,7 +436,7 @@ def get_form_arrow(form_pts):
     else: return "⚪ ➡️"
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V37")
+st.title("📱 ORACLE V38")
 all_fixtures = get_upcoming_matches()
 
 # --- SIDEBAR ---
@@ -463,7 +456,6 @@ with st.sidebar:
         st.session_state.selection_validated = False
         st.session_state.auto_analyzed = False
         
-    # NOUVEAU BOUTON GRAPHIQUES
     if st.button("📊 GRAPHIQUES DE COMPARAISON"):
         st.session_state.mode = "graphs"
 
@@ -484,7 +476,7 @@ with st.sidebar:
             if st.button(f"🎯 {p['name']} ({item['team']})", key=f"tck_scr_{i}", use_container_width=True):
                 show_analysis_dialog("scorer", item['m'], f"Buteur : {p['name']}", item['h'], item['a'], p)
 
-# --- AFFICHAGE : GRAPHIQUES DE COMPARAISON ---
+# --- AFFICHAGE : GRAPHIQUES DE COMPARAISON (DARK MODE & LABELS) ---
 if st.session_state.mode == "graphs":
     st.markdown("### 📊 GRAPHIQUES DE COMPARAISON")
     if all_fixtures:
@@ -509,52 +501,54 @@ if st.session_state.mode == "graphs":
                 a = process_stats_by_filter(raw_a, 10)
                 adv = get_advanced_mock_data(h, a)
                 
-                # GRAPH GLOBAL (Barres groupées)
+                # GRAPH GLOBAL DARK
                 st.markdown("#### 🌍 Vue d'ensemble Globale")
                 df_global = pd.DataFrame({
                     "Equipe": [h_name, h_name, h_name, h_name, a_name, a_name, a_name, a_name],
                     "Critère": ["Attaque", "Défense (Solidité)", "Forme", "Discipline", "Attaque", "Défense (Solidité)", "Forme", "Discipline"],
-                    "Note (0-100)": [
-                        min(100, h['avg_gf']*35), max(0, 100 - h['avg_ga']*35), min(100, h['form']*33), max(0, 100 - h['red_cards']*20),
-                        min(100, a['avg_gf']*35), max(0, 100 - a['avg_ga']*35), min(100, a['form']*33), max(0, 100 - a['red_cards']*20)
-                    ]
+                    "Note (0-100)": [min(100, h['avg_gf']*35), max(0, 100 - h['avg_ga']*35), min(100, h['form']*33), max(0, 100 - h['red_cards']*20), min(100, a['avg_gf']*35), max(0, 100 - a['avg_ga']*35), min(100, a['form']*33), max(0, 100 - a['red_cards']*20)]
                 })
-                ch_global = alt.Chart(df_global).mark_bar().encode(
-                    x=alt.X('Critère:N', title=None, axis=alt.Axis(labelAngle=0, labelColor='white')),
-                    y=alt.Y('Note (0-100):Q', scale=alt.Scale(domain=[0, 100]), axis=alt.Axis(gridColor='#333')),
-                    color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(title=None, labelColor='white')),
-                    xOffset='Equipe:N'
-                ).properties(height=300).configure_view(strokeWidth=0).configure_legend(orient='bottom')
+                base_global = alt.Chart(df_global).encode(
+                    x=alt.X('Critère:N', title=None, axis=dark_axis_config),
+                    y=alt.Y('Note (0-100):Q', scale=alt.Scale(domain=[0, 100]), axis=dark_axis_config),
+                    color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(title=None, labelColor='#E0E0E0', orient='bottom')),
+                    xOffset='Equipe:N',
+                    tooltip=[alt.Tooltip('Equipe', title='Équipe'), alt.Tooltip('Critère'), alt.Tooltip('Note (0-100)', title='Score', format='.0f')]
+                )
+                ch_global = base_global.mark_bar() + base_global.mark_text(align='center', baseline='bottom', dy=-5, color='white').encode(text=alt.Text('Note (0-100):Q', format='.0f'))
+                ch_global = ch_global.properties(height=320, background='#1a1c24').configure_view(stroke='#333')
                 st.altair_chart(ch_global, use_container_width=True)
                 
-                # SELECTEUR DES 12 CATEGORIES
                 st.markdown("---")
-                cat_options = [
-                    "1. Forme actuelle", "2. Statistiques offensives", "3. Statistiques défensives",
-                    "4. Confrontations directes (H2H)", "5. Avantage du terrain", "6. Composition d’équipe",
-                    "7. Aspect tactique", "8. Expérience européenne", "9. Enjeu et motivation",
-                    "10. Données avancées", "11. Facteurs externes", "12. Analyse probabiliste"
-                ]
+                cat_options = ["1. Forme actuelle", "2. Statistiques offensives", "3. Statistiques défensives", "4. Confrontations directes (H2H)", "5. Avantage du terrain", "6. Composition d’équipe", "7. Aspect tactique", "8. Expérience européenne", "9. Enjeu et motivation", "10. Données avancées", "11. Facteurs externes", "12. Analyse probabiliste"]
                 sel_cat = st.selectbox("🔍 Sélectionner un domaine d'analyse détaillé :", cat_options)
                 
-                # RENDU DYNAMIQUE SELON LA CATEGORIE
                 if "1. Forme" in sel_cat:
                     st.write(f"##### 📈 Résultats Récents (10 derniers matchs)")
-                    df_form = pd.DataFrame({"Equipe": [h_name, a_name], "Victoires": [h['form']*10/3, a['form']*10/3], "Points/Match": [h['form'], a['form']]})
-                    st.altair_chart(alt.Chart(df_form).mark_bar(size=40).encode(x='Equipe:N', y='Points/Match:Q', color=alt.Color('Equipe', scale=alt.Scale(range=['#00FF99', '#00D4FF']))).properties(height=200), use_container_width=True)
+                    df_form = pd.DataFrame({"Equipe": [h_name, a_name], "Points/Match": [h['form'], a['form']]})
+                    base_form = alt.Chart(df_form).encode(x=alt.X('Equipe:N', axis=dark_axis_config), y=alt.Y('Points/Match:Q', axis=dark_axis_config), color=alt.Color('Equipe', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=None), tooltip=['Equipe', alt.Tooltip('Points/Match', format='.2f')])
+                    ch_form = base_form.mark_bar(size=50) + base_form.mark_text(dy=-10, color='white').encode(text=alt.Text('Points/Match:Q', format='.2f'))
+                    ch_form = ch_form.properties(height=250, background='#1a1c24').configure_view(stroke='#333')
+                    st.altair_chart(ch_form, use_container_width=True)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Série (5 derniers)</td><td>{h['streak']}</td><td>{a['streak']}</td></tr><tr><td>Points par match</td><td>{h['form']:.2f}</td><td>{a['form']:.2f}</td></tr></table>", unsafe_allow_html=True)
 
                 elif "2. Stat" in sel_cat and "offensives" in sel_cat:
                     st.write("##### ⚽ Puissance de Frappe")
-                    df_off = pd.DataFrame({"Métrique": ["Buts/Match", "Buts/Match", "xG/Match", "xG/Match", "Tirs/Match", "Tirs/Match"], "Equipe": [h_name, a_name, h_name, a_name, h_name, a_name], "Valeur": [h['avg_gf'], a['avg_gf'], adv['h_xg'], adv['a_xg'], adv['h_shots']/5, adv['a_shots']/5]}) # Tirs divisé par 5 pour l'échelle du graph
-                    st.altair_chart(alt.Chart(df_off).mark_bar().encode(x='Métrique:N', y='Valeur:Q', color='Equipe:N', xOffset='Equipe:N').properties(height=250), use_container_width=True)
+                    df_off = pd.DataFrame({"Métrique": ["Buts/Match", "Buts/Match", "xG/Match", "xG/Match", "Tirs/Match (div. 5)", "Tirs/Match (div. 5)"], "Equipe": [h_name, a_name, h_name, a_name, h_name, a_name], "Valeur": [h['avg_gf'], a['avg_gf'], adv['h_xg'], adv['a_xg'], adv['h_shots']/5, adv['a_shots']/5], "Valeur Réelle": [h['avg_gf'], a['avg_gf'], adv['h_xg'], adv['a_xg'], adv['h_shots'], adv['a_shots']]})
+                    base_off = alt.Chart(df_off).encode(x=alt.X('Métrique:N', axis=dark_axis_config), y=alt.Y('Valeur:Q', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur Réelle', format='.1f', title='Valeur')])
+                    ch_off = base_off.mark_bar() + base_off.mark_text(dy=-5, color='white').encode(text=alt.Text('Valeur Réelle:Q', format='.1f'))
+                    ch_off = ch_off.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
+                    st.altair_chart(ch_off, use_container_width=True)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Marqués</td><td>{h['avg_gf']:.2f}</td><td>{a['avg_gf']:.2f}</td></tr><tr><td>Expected Goals (xG)</td><td>{adv['h_xg']:.2f}</td><td>{adv['a_xg']:.2f}</td></tr><tr><td>Tirs/Match</td><td>{adv['h_shots']:.1f}</td><td>{adv['a_shots']:.1f}</td></tr><tr><td>Tirs Cadrés/Match</td><td>{adv['h_sot']:.1f}</td><td>{adv['a_sot']:.1f}</td></tr></table>", unsafe_allow_html=True)
                     st.info("💡 L'IA utilise l'historique offensif combiné au taux de volatilité pour simuler le volume de création d'occasions (xG et Tirs).")
 
                 elif "3. Stat" in sel_cat and "défensives" in sel_cat:
-                    st.write("##### 🛡️ Le Mur Défensif")
+                    st.write("##### 🛡️ Le Mur Défensif (Plus bas est meilleur)")
                     df_def = pd.DataFrame({"Métrique": ["Buts Encaissés", "Buts Encaissés", "xGA (Expected)", "xGA (Expected)"], "Equipe": [h_name, a_name, h_name, a_name], "Valeur": [h['avg_ga'], a['avg_ga'], adv['h_xga'], adv['a_xga']]})
-                    st.altair_chart(alt.Chart(df_def).mark_bar().encode(x='Métrique:N', y='Valeur:Q', color=alt.Color('Equipe:N', scale=alt.Scale(range=['#FF4B4B', '#FFA500'])), xOffset='Equipe:N').properties(height=250), use_container_width=True)
+                    base_def = alt.Chart(df_def).encode(x=alt.X('Métrique:N', axis=dark_axis_config), y=alt.Y('Valeur:Q', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#FF4B4B', '#FFA500']), legend=alt.Legend(labelColor='#E0E0E0')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur', format='.2f')])
+                    ch_def = base_def.mark_bar() + base_def.mark_text(dy=-5, color='white').encode(text=alt.Text('Valeur:Q', format='.2f'))
+                    ch_def = ch_def.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
+                    st.altair_chart(ch_def, use_container_width=True)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Encaissés</td><td>{h['avg_ga']:.2f}</td><td>{a['avg_ga']:.2f}</td></tr><tr><td>Expected Goals Against (xGA)</td><td>{adv['h_xga']:.2f}</td><td>{adv['a_xga']:.2f}</td></tr><tr><td>Clean Sheets</td><td>{h['cs_rate']:.0f}%</td><td>{a['cs_rate']:.0f}%</td></tr></table>", unsafe_allow_html=True)
 
                 elif "4. Conf" in sel_cat:
@@ -564,8 +558,7 @@ if st.session_state.mode == "graphs":
                         st.metric("Total de confrontations récentes analysées", h2h['matches'])
                         st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>Comparaison</th></tr><tr><td>Moyenne Buts par Match (H2H)</td><td>{h2h['avg_goals']:.2f} buts</td></tr><tr><td>Volatilité du score</td><td>{'Haute' if h2h['vol']>1.5 else 'Basse'}</td></tr></table>", unsafe_allow_html=True)
                         st.info("💡 Un historique fermé (< 2.5) suggère une opposition tactique récurrente bloquant les espaces.")
-                    else:
-                        st.warning("Aucune confrontation directe récente enregistrée dans la base de données.")
+                    else: st.warning("Aucune confrontation directe récente enregistrée dans la base de données.")
 
                 elif "5. Avantage" in sel_cat:
                     st.write("##### 🏟️ Domination Territoriale")
@@ -574,16 +567,17 @@ if st.session_state.mode == "graphs":
 
                 elif "6. Comp" in sel_cat:
                     st.write("##### 🏥 Effectif & Joueurs Clés")
-                    sh = get_top_scorers(m_data['league']['id'], h['id'])
-                    sa = get_top_scorers(m_data['league']['id'], a['id'])
-                    top_h = sh[0]['name'] if sh else "Inconnu"
-                    top_a = sa[0]['name'] if sa else "Inconnu"
+                    sh = get_top_scorers(m_data['league']['id'], h['id']); sa = get_top_scorers(m_data['league']['id'], a['id'])
+                    top_h = sh[0]['name'] if sh else "Inconnu"; top_a = sa[0]['name'] if sa else "Inconnu"
                     st.markdown(f"<table class='comp-table'><tr><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Buteur Principal : {top_h}</td><td>Buteur Principal : {top_a}</td></tr><tr><td>Forme Gardien : {'Excellente' if h['cs_rate']>30 else 'Moyenne'}</td><td>Forme Gardien : {'Excellente' if a['cs_rate']>30 else 'Moyenne'}</td></tr></table>", unsafe_allow_html=True)
 
                 elif "7. Tactique" in sel_cat:
                     st.write("##### ♟️ Style de Jeu (Simulation IA)")
-                    df_tact = pd.DataFrame({"Métrique": ["Possession", "Possession", "Pressing (PPDA inversé)", "Pressing (PPDA inversé)"], "Equipe": [h_name, a_name, h_name, a_name], "Valeur (%)": [adv['h_poss'], adv['a_poss'], 100-adv['h_ppda']*3, 100-adv['a_ppda']*3]})
-                    st.altair_chart(alt.Chart(df_tact).mark_bar().encode(x='Valeur (%):Q', y='Métrique:N', color='Equipe:N').properties(height=200), use_container_width=True)
+                    df_tact = pd.DataFrame({"Métrique": ["Possession", "Possession", "Pressing (PPDA inv.)", "Pressing (PPDA inv.)"], "Equipe": [h_name, a_name, h_name, a_name], "Valeur (%)": [adv['h_poss'], adv['a_poss'], 100-adv['h_ppda']*3, 100-adv['a_ppda']*3]})
+                    base_tact = alt.Chart(df_tact).encode(x=alt.X('Valeur (%):Q', axis=dark_axis_config, scale=alt.Scale(domain=[0, 100])), y=alt.Y('Métrique:N', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur (%)', format='.0f')])
+                    ch_tact = base_tact.mark_bar() + base_tact.mark_text(align='left', dx=5, color='white').encode(text=alt.Text('Valeur (%):Q', format='.0f'))
+                    ch_tact = ch_tact.properties(height=220, background='#1a1c24').configure_view(stroke='#333')
+                    st.altair_chart(ch_tact, use_container_width=True)
                     st.info("💡 Le PPDA estime l'intensité du pressing. Plus la barre est haute, plus l'équipe étouffe l'adversaire haut sur le terrain.")
 
                 elif "8. Expérience" in sel_cat:
@@ -609,8 +603,7 @@ if st.session_state.mode == "graphs":
                 elif "11. Facteurs externes" in sel_cat:
                     st.write("##### 🌧️ Impondérables")
                     random.seed(m_data['fixture']['id'])
-                    meteo = random.choice(["Clair", "Pluie légère", "Nuageux", "Humide"])
-                    fatigue = random.choice(["Reposés (7 jours)", "Calendrier chargé (3 jours)"])
+                    meteo = random.choice(["Clair", "Pluie légère", "Nuageux", "Humide"]); fatigue = random.choice(["Reposés (7 jours)", "Calendrier chargé (3 jours)"])
                     st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True)
                     random.seed()
 
@@ -618,17 +611,17 @@ if st.session_state.mode == "graphs":
                     st.write("##### 🎲 Projection Modèle de Poisson")
                     p = get_coherent_probabilities(h, a)
                     df_pie = pd.DataFrame({"Issue": ["Domicile", "Nul", "Extérieur"], "Probabilité": [p[1]*100, p[0]*100, p[2]*100]})
-                    ch_pie = alt.Chart(df_pie).mark_arc(innerRadius=50).encode(theta=alt.Theta(field="Probabilité", type="quantitative"), color=alt.Color(field="Issue", type="nominal", scale=alt.Scale(range=['#00FF99', '#FFA500', '#00D4FF']))).properties(height=250)
+                    base_pie = alt.Chart(df_pie).encode(theta=alt.Theta("Probabilité", stack=True), color=alt.Color("Issue", scale=alt.Scale(range=['#00FF99', '#FFA500', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), tooltip=['Issue', alt.Tooltip('Probabilité', format='.1f', title='Probabilité (%)')])
+                    pie = base_pie.mark_arc(innerRadius=60, outerRadius=100)
+                    text = base_pie.mark_text(radius=120, fill="white").encode(text=alt.Text("Probabilité", format=".0f"), order=alt.Order("Issue", sort="descending"), color=alt.value("white"))
+                    ch_pie = alt.layer(pie, text).properties(height=300, background='#1a1c24').configure_view(strokeWidth=0)
                     st.altair_chart(ch_pie, use_container_width=True)
                     
                     st.write("#### 📊 Comment estimer le résultat ?")
                     best_idx = np.argmax(p)
-                    if best_idx == 1:
-                        st.success(f"**Victoire probable de {h_name} car :** Meilleure forme à domicile, attaque supérieure ({h['avg_gf']:.1f} b/m) et probabilité mathématique dominante ({p[1]*100:.0f}%).")
-                    elif best_idx == 2:
-                        st.info(f"**Victoire probable de {a_name} car :** Dynamique nettement à l'avantage des visiteurs et défense locale friable.")
-                    else:
-                        st.warning("**Match nul probable car :** Forces parfaitement équilibrées tactiquement et statistiquement.")
+                    if best_idx == 1: st.success(f"**Victoire probable de {h_name} car :** Meilleure forme à domicile, attaque supérieure ({h['avg_gf']:.1f} b/m) et probabilité mathématique dominante ({p[1]*100:.0f}%).")
+                    elif best_idx == 2: st.info(f"**Victoire probable de {a_name} car :** Dynamique nettement à l'avantage des visiteurs et défense locale friable.")
+                    else: st.warning("**Match nul probable car :** Forces parfaitement équilibrées tactiquement et statistiquement.")
             else: st.warning("Données insuffisantes.")
     else: st.info("Aucun match disponible.")
 
