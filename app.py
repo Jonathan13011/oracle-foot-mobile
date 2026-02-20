@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V45 (LE PIF DU FOOT - FIX VISUEL HTML) ---
+# --- 1. CONFIGURATION V44 (LE PIF DU FOOT - CARTES PRONOS & FIX BUG) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -267,29 +267,45 @@ def get_coherent_probabilities(h, a):
 def gen_smart_justif(type, val, h, a):
     r = []
     h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
-    if "Domicile" in val:
-        if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme impériale.")
-        if h.get('avg_gf', 0) > 1.5: r.append("Attaque prolifique à domicile.")
-        if a.get('avg_ga', 0) > 1.5: r.append(f"Défense adverse très friable.")
-    elif "Extérieur" in val:
+    if h_name in val:
+        if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme impériale à domicile.")
+        if h.get('avg_gf', 0) > 1.5: r.append("Attaque prolifique, difficile à contenir.")
+        if a.get('avg_ga', 0) > 1.5: r.append(f"Défense de {a_name} très friable récemment.")
+    elif a_name in val:
         if a.get('form', 0) > 1.5: r.append(f"{a_name} voyage exceptionnellement bien.")
         if a.get('avg_gf', 0) > 1.5: r.append("Redoutable efficacité en contre-attaque.")
-    elif "Nul" in val: r.append("Forces équilibrées et forte tendance à la neutralisation.")
+    elif "Nul" in val: r.append("Forces équilibrées et forte tendance à la neutralisation mutuelle.")
     return random.choice(r) if r else "Analyse statistique favorable."
 
+# --- CORRECTION DU BUG PLAN B ---
 def gen_plan_b_justif(val, h, a):
     r = []
-    h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
-    if "Domicile" in val:
-        r.append(f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.")
-        r.append(f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique.")
-    elif "Extérieur" in val:
-        r.append(f"Attention au 'Hold-up'. {a_name} a le profil parfait pour subir et piquer en contre si {h_name} se découvre trop.")
-        r.append(f"Si le match s'enlise, l'opportunisme de {a_name} à l'extérieur pourrait faire très mal contre le cours du jeu.")
-    elif "Nul" in val:
-        r.append(f"La peur de perdre pourrait figer le jeu. Un match verrouillé tactiquement menant à un score de parité est très crédible.")
-        r.append(f"Si les gardiens sont dans un grand jour, ce match a tout du match piège qui se termine sur un score nul.")
+    h_name = str(h.get('name', 'Domicile'))
+    a_name = str(a.get('name', 'Extérieur'))
+    val_str = str(val)
+    
+    if h_name in val_str or "Domicile" in val_str:
+        r.extend([
+            f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.",
+            f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique."
+        ])
+    elif a_name in val_str or "Extérieur" in val_str:
+        r.extend([
+            f"Attention au 'Hold-up'. {a_name} a le profil parfait pour subir et piquer en contre si {h_name} se découvre trop.",
+            f"Si le match s'enlise, l'opportunisme de {a_name} à l'extérieur pourrait faire très mal contre le cours du jeu."
+        ])
+    elif "Nul" in val_str:
+        r.extend([
+            f"La peur de perdre pourrait figer le jeu. Un match verrouillé tactiquement menant à un score de parité est très crédible.",
+            f"Si les gardiens sont dans un grand jour, ce match a tout du match piège qui se termine sur un score nul."
+        ])
+        
+    if len(r) == 0:
+        return "Scénario alternatif envisagé par l'IA en cas de contre-performance du favori."
+        
     return random.choice(r)
+
+def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
 
 # --- TICKETS ---
 def gen_match_ticket(fix):
@@ -347,19 +363,32 @@ def update_user_selection(fix_id, match_str, home_id, away_id, league_id):
         if fix_id in st.session_state.persisted_selections: del st.session_state.persisted_selections[fix_id]
 
 # --- DIALOGS ---
-@st.dialog("🗓️ HISTORIQUE DES 5 DERNIERS MATCHS")
-def show_history_dialog(h_name, h_hist, a_name, a_hist):
+@st.dialog("📊 HISTORIQUE & CLASSEMENT")
+def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_hist, a_form, league_id):
+    standings = get_standings(league_id)
+    rank_h, rank_a = None, None
+    if standings:
+        for t in standings:
+            if t['team']['id'] == h_id: rank_h = t
+            if t['team']['id'] == a_id: rank_a = t
+    
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f"<h4 style='color:#00D4FF;text-align:center;'>{h_name}</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='color:#00FF99;text-align:center;font-family:\"Kanit\", sans-serif;'>{h_name}</h4>", unsafe_allow_html=True)
+        if rank_h: st.write(f"🏆 Rang : **{rank_h['rank']}ème** {get_form_arrow(h_form)} ({rank_h['points']} pts)")
+        else: st.write(f"🏆 Rang : N/A {get_form_arrow(h_form)}")
+        st.markdown("<hr style='margin:5px 0; border-color:#333;'>", unsafe_allow_html=True)
         for m in h_hist[:5]:
             col = "#00FF99" if m['res']=="✅" else ("#FFA500" if m['res']=="➖" else "#FF4B4B")
-            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col};'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col}; font-size:0.85rem;'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<h4 style='color:#00D4FF;text-align:center;'>{a_name}</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='color:#00D4FF;text-align:center;font-family:\"Kanit\", sans-serif;'>{a_name}</h4>", unsafe_allow_html=True)
+        if rank_a: st.write(f"🏆 Rang : **{rank_a['rank']}ème** {get_form_arrow(a_form)} ({rank_a['points']} pts)")
+        else: st.write(f"🏆 Rang : N/A {get_form_arrow(a_form)}")
+        st.markdown("<hr style='margin:5px 0; border-color:#333;'>", unsafe_allow_html=True)
         for m in a_hist[:5]:
             col = "#00FF99" if m['res']=="✅" else ("#FFA500" if m['res']=="➖" else "#FF4B4B")
-            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col};'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col}; font-size:0.85rem;'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
 
 @st.dialog("🧠 RAYON X : ANALYSE DE L'IA")
 def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
@@ -432,7 +461,6 @@ def show_final_verdict(h, a, p, q, enjeu_str):
     st.write(f"- **Dynamique (Forme) :** {h['form']:.1f} pts/m vs {a['form']:.1f} pts/m\n- **Discipline :** {'Attention aux cartons/pénos' if (h['red_cards']+a['red_cards'] > 2) else 'Match fluide attendu'}.")
     if enjeu_str: st.write(f"- **Contexte & Enjeu :** {enjeu_str}")
 
-def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
 
 # --- HEADER PRINCIPAL (LOGO & BASELINE) ---
 header_container = st.container()
@@ -467,7 +495,6 @@ with st.sidebar:
         
     if st.button("📊 GRAPHIQUES DE COMPARAISON"): st.session_state.mode = "graphs"
 
-    # TICKETS CLIQUABLES
     if st.session_state.mode == "std" and st.session_state.ticket_data:
         st.success("✅ TICKET MATCHS (Unique)")
         for i, item in enumerate(st.session_state.ticket_data):
@@ -690,9 +717,10 @@ elif st.session_state.mode == "my_selection":
                         
                         border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
                         
-                        # CREATION DU BLOC HTML EN UNE LIGNE POUR ÉVITER LE BUG MARKDOWN DE STREAMLIT
-                        html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-bottom:15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>"
-                        html_card += f"<div style='text-align:center; margin-bottom: 10px;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name}</span> <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{a_name}</span></div>"
+                        if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True):
+                            show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
+
+                        html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-top:-10px; margin-bottom:25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>"
                         
                         if not st.session_state.show_plan_b:
                             html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:\"Kanit\", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p></div>"
@@ -773,7 +801,10 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
             if d['m']['fixture']['id'] == match_data['fixture']['id']:
                 m = d['m']
                 st.markdown(f"<div class='match-header'><div class='team-box'><img src='{m['teams']['home']['logo']}' class='team-logo'><div class='team-name'>{m['teams']['home']['name']}</div></div><div class='vs-box'>VS</div><div class='team-box'><img src='{m['teams']['away']['logo']}' class='team-logo'><div class='team-name'>{m['teams']['away']['name']}</div></div></div>", unsafe_allow_html=True)
-                if st.button("🔍 Voir les 5 derniers résultats des deux équipes", use_container_width=True): show_history_dialog(m['teams']['home']['name'], d['raw_h']['history'], m['teams']['away']['name'], d['raw_a']['history'])
+                
+                h = process_stats_by_filter(d['raw_h'], 10); a = process_stats_by_filter(d['raw_a'], 10)
+                if st.button("🔍 Voir les 5 derniers résultats et le classement", use_container_width=True): 
+                    show_history_and_rank_dialog(h['name'], h['id'], d['raw_h']['history'], h['form'], a['name'], a['id'], d['raw_a']['history'], a['form'], m['league']['id'])
                 
                 st.markdown("### ⚙️ Options d'Analyse")
                 filter_opt = st.radio("Baser les statistiques sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, key="main_filter")
