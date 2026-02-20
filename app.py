@@ -10,22 +10,22 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURATION V38 (GRAPHIQUES DARK MODE STYLÉS) ---
-st.set_page_config(page_title="Oracle V38", layout="wide", page_icon="📱")
+# --- 1. CONFIGURATION V39 (UX FLUIDE & GRAPHIQUES PRO) ---
+st.set_page_config(page_title="Oracle V39", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
     /* FOND GÉNÉRAL & TEXTE */
-    .stApp { background-color: #0E1117; color: #FFFFFF !important; }
+    .stApp, [data-testid="stAppViewContainer"] { background-color: #0E1117 !important; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, label, h4, h5, h6, li, td, th { color: #FFFFFF !important; }
 
-    /* FENÊTRES MODALES (DIALOGS IPHONE) LISIBLES */
+    /* FENÊTRES MODALES (DIALOGS) LISIBLES & DESIGN */
     div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
     div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; }
     div[role="dialog"] p, div[role="dialog"] li { color: #e0e0e0 !important; }
 
-    /* SELECTBOX FIX */
+    /* SELECTBOX FIX (Anti Flash Blanc) */
     div[data-baseweb="select"] > div { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     div[data-baseweb="select"] span { color: white !important; }
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] { background-color: #1a1c24 !important; border: 1px solid #333 !important; }
@@ -59,20 +59,19 @@ st.markdown("""
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
     .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; }
+    .info-icon { position: absolute; top: 1px; right: 2px; font-size: 0.8rem; cursor: pointer; color: #00FF99 !important; }
     .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; align-items: center; }
     .stat-label { color: #aaa; font-size: 0.8rem; } .stat-val { font-weight: bold; font-size: 0.9rem; }
     
     .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
     
     /* TABLES POUR GRAPHIQUES */
-    .comp-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-    .comp-table th, .comp-table td { border: 1px solid #444; padding: 8px; text-align: center; }
-    .comp-table th { background-color: #262935; color: #00FF99 !important; }
+    .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; background-color: transparent !important; }
+    .comp-table th, .comp-table td { border: 1px solid #444; padding: 10px; text-align: center; }
+    .comp-table th { background-color: #262935; color: #00FF99 !important; font-weight: bold; }
     .comp-table tr:nth-child(even) { background-color: #1a1c24; }
+    .comp-table tr:hover { background-color: #2a2d3d; }
     
-    /* ALTAIR DARK THEME FIXES */
-    canvas { border-radius: 8px; }
-
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; } }
 </style>
 """, unsafe_allow_html=True)
@@ -98,8 +97,8 @@ if 'auto_analyzed' not in st.session_state: st.session_state.auto_analyzed = Fal
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
 
-# --- CONFIGURATION ALTAIR DARK ---
-dark_axis_config = alt.Axis(labelColor='#E0E0E0', titleColor='#E0E0E0', gridColor='#333333', domainColor='#555555', tickColor='#555555')
+# --- CONFIGURATION ALTAIR DARK (Pour rendre les graphes magnifiques) ---
+dark_axis_config = alt.Axis(labelColor='#E0E0E0', titleColor='#E0E0E0', gridColor='#2a2d3d', domainColor='#555555', tickColor='#555555', labelFontSize=12, titleFontSize=13)
 
 # --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
@@ -126,10 +125,12 @@ def get_deep_stats(tid):
         gf = (m['goals']['home'] if h else m['goals']['away']) or 0
         ga = (m['goals']['away'] if h else m['goals']['home']) or 0
         res = "✅" if gf > ga else ("➖" if gf == ga else "❌")
+        
         hf = m['score']['halftime']['home'] if h else m['score']['halftime']['away']
         ha = m['score']['halftime']['away'] if h else m['score']['halftime']['home']
         ht_d = 1 if hf is not None and ha is not None and hf == ha else 0
         ft_d = 1 if gf == ga else 0
+        
         s_70, c_70 = 0, 0
         if 'events' in m and m['events']:
             for ev in m['events']:
@@ -141,7 +142,9 @@ def get_deep_stats(tid):
         else:
             if gf > 0 and random.random() > 0.5: s_70 += 1
             if ga > 0 and random.random() > 0.5: c_70 += 1
+
         history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0})
+        
     return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], "id": tid, "history": history, "league_id": d[0]['league']['id']}
 
 @st.cache_data(ttl=3600)
@@ -377,20 +380,21 @@ def show_full_10k_graph(scores):
             val = max(0, target_pct + noise)
             if s == 10000: val = target_pct
             data.append({"Itérations": s, "Probabilité (%)": val, "Score": score_str})
+            
     df = pd.DataFrame(data)
     
-    # GRAPHIQUE DARK MODE
+    # GRAPHIQUE DARK MODE SANS FOND BLANC
     base = alt.Chart(df).encode(
         x=alt.X('Itérations:Q', axis=dark_axis_config),
         y=alt.Y('Probabilité (%):Q', scale=alt.Scale(zero=False), axis=dark_axis_config),
         color=alt.Color('Score:N', scale=alt.Scale(scheme='set2'), legend=alt.Legend(labelColor='#E0E0E0'))
     )
     ch = base.mark_line(strokeWidth=3) + base.mark_area(opacity=0.2)
-    ch = ch.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
-    st.altair_chart(ch, use_container_width=True)
+    ch = ch.properties(height=280, background='transparent').configure_view(strokeWidth=0)
+    st.altair_chart(ch, use_container_width=True, theme=None)
     
     st.divider()
-    st.write("### 🏆 Bilan Final")
+    st.write("### 🏆 Bilan Final (10 000 Matchs Joués)")
     for score_str, count in scores: st.markdown(f"- **Score {score_str}** : Apparu **{count} fois** ({(count/10000)*100:.1f}%)")
 
 @st.dialog("⭐ PERFORMANCES RÉCENTES (BUTEUR)")
@@ -436,7 +440,7 @@ def get_form_arrow(form_pts):
     else: return "⚪ ➡️"
 
 # --- INTERFACE ---
-st.title("📱 ORACLE V38")
+st.title("📱 ORACLE V39")
 all_fixtures = get_upcoming_matches()
 
 # --- SIDEBAR ---
@@ -476,7 +480,7 @@ with st.sidebar:
             if st.button(f"🎯 {p['name']} ({item['team']})", key=f"tck_scr_{i}", use_container_width=True):
                 show_analysis_dialog("scorer", item['m'], f"Buteur : {p['name']}", item['h'], item['a'], p)
 
-# --- AFFICHAGE : GRAPHIQUES DE COMPARAISON (DARK MODE & LABELS) ---
+# --- AFFICHAGE : GRAPHIQUES DE COMPARAISON (DARK MODE 100%) ---
 if st.session_state.mode == "graphs":
     st.markdown("### 📊 GRAPHIQUES DE COMPARAISON")
     if all_fixtures:
@@ -515,40 +519,39 @@ if st.session_state.mode == "graphs":
                     xOffset='Equipe:N',
                     tooltip=[alt.Tooltip('Equipe', title='Équipe'), alt.Tooltip('Critère'), alt.Tooltip('Note (0-100)', title='Score', format='.0f')]
                 )
-                ch_global = base_global.mark_bar() + base_global.mark_text(align='center', baseline='bottom', dy=-5, color='white').encode(text=alt.Text('Note (0-100):Q', format='.0f'))
-                ch_global = ch_global.properties(height=320, background='#1a1c24').configure_view(stroke='#333')
-                st.altair_chart(ch_global, use_container_width=True)
+                ch_global = base_global.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4) + base_global.mark_text(align='center', baseline='bottom', dy=-5, color='white', fontWeight='bold').encode(text=alt.Text('Note (0-100):Q', format='.0f'))
+                ch_global = ch_global.properties(height=320, background='transparent').configure_view(strokeWidth=0)
+                st.altair_chart(ch_global, use_container_width=True, theme=None)
                 
                 st.markdown("---")
                 cat_options = ["1. Forme actuelle", "2. Statistiques offensives", "3. Statistiques défensives", "4. Confrontations directes (H2H)", "5. Avantage du terrain", "6. Composition d’équipe", "7. Aspect tactique", "8. Expérience européenne", "9. Enjeu et motivation", "10. Données avancées", "11. Facteurs externes", "12. Analyse probabiliste"]
-                sel_cat = st.selectbox("🔍 Sélectionner un domaine d'analyse détaillé :", cat_options)
+                sel_cat = st.selectbox("🔍 Sélectionner un domaine d'analyse détaillé :", cat_options, key="g_cat")
                 
                 if "1. Forme" in sel_cat:
                     st.write(f"##### 📈 Résultats Récents (10 derniers matchs)")
                     df_form = pd.DataFrame({"Equipe": [h_name, a_name], "Points/Match": [h['form'], a['form']]})
-                    base_form = alt.Chart(df_form).encode(x=alt.X('Equipe:N', axis=dark_axis_config), y=alt.Y('Points/Match:Q', axis=dark_axis_config), color=alt.Color('Equipe', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=None), tooltip=['Equipe', alt.Tooltip('Points/Match', format='.2f')])
-                    ch_form = base_form.mark_bar(size=50) + base_form.mark_text(dy=-10, color='white').encode(text=alt.Text('Points/Match:Q', format='.2f'))
-                    ch_form = ch_form.properties(height=250, background='#1a1c24').configure_view(stroke='#333')
-                    st.altair_chart(ch_form, use_container_width=True)
+                    base_form = alt.Chart(df_form).encode(x=alt.X('Equipe:N', axis=dark_axis_config, title=None), y=alt.Y('Points/Match:Q', axis=dark_axis_config, title='Points / Match'), color=alt.Color('Equipe', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=None), tooltip=['Equipe', alt.Tooltip('Points/Match', format='.2f')])
+                    ch_form = base_form.mark_bar(size=60, cornerRadiusTopLeft=8, cornerRadiusTopRight=8) + base_form.mark_text(dy=-10, color='white', fontSize=14, fontWeight='bold').encode(text=alt.Text('Points/Match:Q', format='.2f'))
+                    ch_form = ch_form.properties(height=280, background='transparent').configure_view(strokeWidth=0)
+                    st.altair_chart(ch_form, use_container_width=True, theme=None)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Série (5 derniers)</td><td>{h['streak']}</td><td>{a['streak']}</td></tr><tr><td>Points par match</td><td>{h['form']:.2f}</td><td>{a['form']:.2f}</td></tr></table>", unsafe_allow_html=True)
 
                 elif "2. Stat" in sel_cat and "offensives" in sel_cat:
                     st.write("##### ⚽ Puissance de Frappe")
                     df_off = pd.DataFrame({"Métrique": ["Buts/Match", "Buts/Match", "xG/Match", "xG/Match", "Tirs/Match (div. 5)", "Tirs/Match (div. 5)"], "Equipe": [h_name, a_name, h_name, a_name, h_name, a_name], "Valeur": [h['avg_gf'], a['avg_gf'], adv['h_xg'], adv['a_xg'], adv['h_shots']/5, adv['a_shots']/5], "Valeur Réelle": [h['avg_gf'], a['avg_gf'], adv['h_xg'], adv['a_xg'], adv['h_shots'], adv['a_shots']]})
-                    base_off = alt.Chart(df_off).encode(x=alt.X('Métrique:N', axis=dark_axis_config), y=alt.Y('Valeur:Q', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur Réelle', format='.1f', title='Valeur')])
-                    ch_off = base_off.mark_bar() + base_off.mark_text(dy=-5, color='white').encode(text=alt.Text('Valeur Réelle:Q', format='.1f'))
-                    ch_off = ch_off.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
-                    st.altair_chart(ch_off, use_container_width=True)
+                    base_off = alt.Chart(df_off).encode(x=alt.X('Métrique:N', axis=dark_axis_config, title=None), y=alt.Y('Valeur:Q', axis=dark_axis_config, title=None), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(title=None, labelColor='#E0E0E0', orient='bottom')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur Réelle', format='.1f', title='Valeur')])
+                    ch_off = base_off.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4) + base_off.mark_text(dy=-10, color='white', fontWeight='bold').encode(text=alt.Text('Valeur Réelle:Q', format='.1f'))
+                    ch_off = ch_off.properties(height=300, background='transparent').configure_view(strokeWidth=0)
+                    st.altair_chart(ch_off, use_container_width=True, theme=None)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Marqués</td><td>{h['avg_gf']:.2f}</td><td>{a['avg_gf']:.2f}</td></tr><tr><td>Expected Goals (xG)</td><td>{adv['h_xg']:.2f}</td><td>{adv['a_xg']:.2f}</td></tr><tr><td>Tirs/Match</td><td>{adv['h_shots']:.1f}</td><td>{adv['a_shots']:.1f}</td></tr><tr><td>Tirs Cadrés/Match</td><td>{adv['h_sot']:.1f}</td><td>{adv['a_sot']:.1f}</td></tr></table>", unsafe_allow_html=True)
-                    st.info("💡 L'IA utilise l'historique offensif combiné au taux de volatilité pour simuler le volume de création d'occasions (xG et Tirs).")
 
                 elif "3. Stat" in sel_cat and "défensives" in sel_cat:
                     st.write("##### 🛡️ Le Mur Défensif (Plus bas est meilleur)")
                     df_def = pd.DataFrame({"Métrique": ["Buts Encaissés", "Buts Encaissés", "xGA (Expected)", "xGA (Expected)"], "Equipe": [h_name, a_name, h_name, a_name], "Valeur": [h['avg_ga'], a['avg_ga'], adv['h_xga'], adv['a_xga']]})
-                    base_def = alt.Chart(df_def).encode(x=alt.X('Métrique:N', axis=dark_axis_config), y=alt.Y('Valeur:Q', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#FF4B4B', '#FFA500']), legend=alt.Legend(labelColor='#E0E0E0')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur', format='.2f')])
-                    ch_def = base_def.mark_bar() + base_def.mark_text(dy=-5, color='white').encode(text=alt.Text('Valeur:Q', format='.2f'))
-                    ch_def = ch_def.properties(height=280, background='#1a1c24').configure_view(stroke='#333')
-                    st.altair_chart(ch_def, use_container_width=True)
+                    base_def = alt.Chart(df_def).encode(x=alt.X('Métrique:N', axis=dark_axis_config, title=None), y=alt.Y('Valeur:Q', axis=dark_axis_config, title=None), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#FF4B4B', '#FFA500']), legend=alt.Legend(title=None, labelColor='#E0E0E0', orient='bottom')), xOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur', format='.2f')])
+                    ch_def = base_def.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4) + base_def.mark_text(dy=-10, color='white', fontWeight='bold').encode(text=alt.Text('Valeur:Q', format='.2f'))
+                    ch_def = ch_def.properties(height=300, background='transparent').configure_view(strokeWidth=0)
+                    st.altair_chart(ch_def, use_container_width=True, theme=None)
                     st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Encaissés</td><td>{h['avg_ga']:.2f}</td><td>{a['avg_ga']:.2f}</td></tr><tr><td>Expected Goals Against (xGA)</td><td>{adv['h_xga']:.2f}</td><td>{adv['a_xga']:.2f}</td></tr><tr><td>Clean Sheets</td><td>{h['cs_rate']:.0f}%</td><td>{a['cs_rate']:.0f}%</td></tr></table>", unsafe_allow_html=True)
 
                 elif "4. Conf" in sel_cat:
@@ -574,10 +577,10 @@ if st.session_state.mode == "graphs":
                 elif "7. Tactique" in sel_cat:
                     st.write("##### ♟️ Style de Jeu (Simulation IA)")
                     df_tact = pd.DataFrame({"Métrique": ["Possession", "Possession", "Pressing (PPDA inv.)", "Pressing (PPDA inv.)"], "Equipe": [h_name, a_name, h_name, a_name], "Valeur (%)": [adv['h_poss'], adv['a_poss'], 100-adv['h_ppda']*3, 100-adv['a_ppda']*3]})
-                    base_tact = alt.Chart(df_tact).encode(x=alt.X('Valeur (%):Q', axis=dark_axis_config, scale=alt.Scale(domain=[0, 100])), y=alt.Y('Métrique:N', axis=dark_axis_config), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur (%)', format='.0f')])
-                    ch_tact = base_tact.mark_bar() + base_tact.mark_text(align='left', dx=5, color='white').encode(text=alt.Text('Valeur (%):Q', format='.0f'))
-                    ch_tact = ch_tact.properties(height=220, background='#1a1c24').configure_view(stroke='#333')
-                    st.altair_chart(ch_tact, use_container_width=True)
+                    base_tact = alt.Chart(df_tact).encode(x=alt.X('Valeur (%):Q', axis=dark_axis_config, scale=alt.Scale(domain=[0, 100]), title=None), y=alt.Y('Métrique:N', axis=dark_axis_config, title=None), color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(title=None, labelColor='#E0E0E0', orient='bottom')), yOffset='Equipe:N', tooltip=['Equipe', 'Métrique', alt.Tooltip('Valeur (%)', format='.0f')])
+                    ch_tact = base_tact.mark_bar(cornerRadiusTopRight=4, cornerRadiusBottomRight=4) + base_tact.mark_text(align='left', dx=5, color='white', fontWeight='bold').encode(text=alt.Text('Valeur (%):Q', format='.0f'))
+                    ch_tact = ch_tact.properties(height=250, background='transparent').configure_view(strokeWidth=0)
+                    st.altair_chart(ch_tact, use_container_width=True, theme=None)
                     st.info("💡 Le PPDA estime l'intensité du pressing. Plus la barre est haute, plus l'équipe étouffe l'adversaire haut sur le terrain.")
 
                 elif "8. Expérience" in sel_cat:
@@ -611,11 +614,11 @@ if st.session_state.mode == "graphs":
                     st.write("##### 🎲 Projection Modèle de Poisson")
                     p = get_coherent_probabilities(h, a)
                     df_pie = pd.DataFrame({"Issue": ["Domicile", "Nul", "Extérieur"], "Probabilité": [p[1]*100, p[0]*100, p[2]*100]})
-                    base_pie = alt.Chart(df_pie).encode(theta=alt.Theta("Probabilité", stack=True), color=alt.Color("Issue", scale=alt.Scale(range=['#00FF99', '#FFA500', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')), tooltip=['Issue', alt.Tooltip('Probabilité', format='.1f', title='Probabilité (%)')])
-                    pie = base_pie.mark_arc(innerRadius=60, outerRadius=100)
-                    text = base_pie.mark_text(radius=120, fill="white").encode(text=alt.Text("Probabilité", format=".0f"), order=alt.Order("Issue", sort="descending"), color=alt.value("white"))
-                    ch_pie = alt.layer(pie, text).properties(height=300, background='#1a1c24').configure_view(strokeWidth=0)
-                    st.altair_chart(ch_pie, use_container_width=True)
+                    base_pie = alt.Chart(df_pie).encode(theta=alt.Theta("Probabilité:Q", stack=True), color=alt.Color("Issue:N", scale=alt.Scale(range=['#00FF99', '#FFA500', '#00D4FF']), legend=alt.Legend(title=None, labelColor='#E0E0E0', orient='right', labelFontSize=14)), tooltip=['Issue', alt.Tooltip('Probabilité', format='.1f', title='Probabilité (%)')])
+                    pie = base_pie.mark_arc(innerRadius=60, outerRadius=120, cornerRadius=5, padAngle=0.03)
+                    text = base_pie.mark_text(radius=150, fontSize=16, fontWeight='bold', fill='white').encode(text=alt.Text("Probabilité:Q", format=".0f"))
+                    ch_pie = alt.layer(pie, text).properties(height=350, background='transparent').configure_view(strokeWidth=0)
+                    st.altair_chart(ch_pie, use_container_width=True, theme=None)
                     
                     st.write("#### 📊 Comment estimer le résultat ?")
                     best_idx = np.argmax(p)
@@ -709,7 +712,7 @@ elif st.session_state.mode == "my_selection":
             if st.button("⬅️ Retour à la sélection"): st.session_state.auto_analyzed = False; st.rerun()
 
 # --- AFFICHAGE PRINCIPAL : STANDARD / QUANTUM ---
-elif st.session_state.mode != "my_selection":
+elif st.session_state.mode != "my_selection" and st.session_state.mode != "graphs":
     if all_fixtures:
         all_fixtures.sort(key=lambda x: x['fixture']['date'])
         competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
@@ -747,6 +750,11 @@ elif st.session_state.mode != "my_selection":
                 raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
                 hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
                 p = get_coherent_probabilities(hs, as_) 
+                if model:
+                    try:
+                        vec = np.array([[match_data['league']['id'], hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
+                        p = model.predict_proba(vec)[0]
+                    except: pass
                 st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
 
         if b2.button("🧬 QUANTUM SNIPER", use_container_width=True):
