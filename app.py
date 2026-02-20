@@ -11,10 +11,9 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V42 (HEADER MAGNIFIQUE & DESIGN ÉPURÉ) ---
+# --- 1. CONFIGURATION V43 (LE PIF DU FOOT - PLAN B INTELLIGENT) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
-# Import de la police Google Font 'Kanit' pour un look sport et épais
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,900;1,300&display=swap');
@@ -32,30 +31,30 @@ st.markdown("""
     /* LOGO AVEC CONTOUR */
     .logo-wrapper img {
         border: 3px solid #FFFFFF;
-        border-radius: 15px; /* Coins arrondis */
-        padding: 5px; /* Espace entre l'image et la bordure */
-        background: #1a1c24; /* Léger fond pour faire ressortir le cadre */
-        box-shadow: 0 0 25px rgba(0, 255, 153, 0.2); /* Halo néon subtil */
+        border-radius: 15px; 
+        padding: 5px; 
+        background: #1a1c24; 
+        box-shadow: 0 0 25px rgba(0, 255, 153, 0.2); 
     }
 
-    /* BASELINE STYLISÉE (Le nez ne ment jamais) */
+    /* BASELINE STYLISÉE */
     .pif-subtitle { 
         text-align: center; 
         font-family: 'Kanit', sans-serif;
-        font-weight: 300; /* Plus fin pour l'élégance */
+        font-weight: 300; 
         font-style: italic; 
-        color: #FFFFFF !important; /* Blanc pur */
-        font-size: 1.6rem; /* Beaucoup plus grand */
-        margin-top: 20px; /* Espace sous le logo */
+        color: #FFFFFF !important; 
+        font-size: 1.6rem; 
+        margin-top: 20px; 
         margin-bottom: 40px; 
         letter-spacing: 1.2px;
-        text-shadow: 0 0 12px rgba(0, 255, 153, 0.6); /* Lueur néon */
+        text-shadow: 0 0 12px rgba(0, 255, 153, 0.6); 
     }
 
     /* MA SÉLECTION TITRE */
     .my-sel-title { text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; color: #FFD700 !important; font-size: 2rem; border-bottom: 2px solid #FFD700; padding-bottom: 10px; margin-bottom: 20px;}
 
-    /* FENÊTRES MODALES (DIALOGS) */
+    /* FENÊTRES MODALES */
     div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
     div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; }
@@ -82,8 +81,8 @@ st.markdown("""
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
     .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; font-family: 'Kanit', sans-serif; }
     
-    div[data-testid="stExpander"] { background-color: #1a1c24 !important; border-color: #333 !important; border-radius: 8px !important; }
-    div[data-testid="stExpander"] summary p { color: #00FF99 !important; font-weight: bold !important; font-family: 'Kanit', sans-serif; }
+    div[data-testid="stExpander"] { background-color: #1a1c24 !important; border-color: #333 !important; border-radius: 8px !important; margin-bottom: 10px; }
+    div[data-testid="stExpander"] summary p { font-weight: bold !important; font-family: 'Kanit', sans-serif; }
 
     .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
@@ -268,20 +267,29 @@ def gen_smart_justif(type, val, h, a):
     r = []
     h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
     if "Domicile" in val:
-        if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme.")
+        if h.get('form', 0) > 1.5: r.append(f"{h_name} est en forme impériale.")
         if h.get('avg_gf', 0) > 1.5: r.append("Attaque prolifique à domicile.")
-        if a.get('avg_ga', 0) > 1.5: r.append(f"Défense adverse friable.")
+        if a.get('avg_ga', 0) > 1.5: r.append(f"Défense adverse très friable.")
     elif "Extérieur" in val:
-        if a.get('form', 0) > 1.5: r.append(f"{a_name} voyage bien.")
-        if a.get('avg_gf', 0) > 1.5: r.append("Contre-attaque efficace.")
-    elif "Nul" in val: r.append("Forces équilibrées.")
+        if a.get('form', 0) > 1.5: r.append(f"{a_name} voyage exceptionnellement bien.")
+        if a.get('avg_gf', 0) > 1.5: r.append("Redoutable efficacité en contre-attaque.")
+    elif "Nul" in val: r.append("Forces équilibrées et forte tendance à la neutralisation.")
     return random.choice(r) if r else "Analyse statistique favorable."
 
+# NOUVEAU : JUSTIFICATIONS SPÉCIFIQUES POUR LE PLAN B (Avocat du Diable)
 def gen_plan_b_justif(val, h, a):
-    if "Domicile" in val: return f"Si {a.get('name')} craque sous la pression, {h.get('name')} pourrait l'emporter grâce à l'avantage du terrain."
-    elif "Extérieur" in val: return f"Si {h.get('name')} se découvre trop, {a.get('name')} a les armes pour créer l'exploit en contre."
-    elif "Nul" in val: return "Si les défenses prennent le pas sur les attaques, le match pourrait se verrouiller complètement."
-    return "Scénario de secours basé sur la volatilité du match."
+    r = []
+    h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
+    if "Domicile" in val:
+        r.append(f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.")
+        r.append(f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique.")
+    elif "Extérieur" in val:
+        r.append(f"Attention au 'Hold-up'. {a_name} a le profil parfait pour subir et piquer en contre si {h_name} se découvre trop.")
+        r.append(f"Si le match s'enlise, l'opportunisme de {a_name} à l'extérieur pourrait faire très mal contre le cours du jeu.")
+    elif "Nul" in val:
+        r.append(f"La peur de perdre pourrait figer le jeu. Un match verrouillé tactiquement menant à un score de parité est très crédible.")
+        r.append(f"Si les gardiens sont dans un grand jour, ce match a tout du match piège qui se termine sur un score nul.")
+    return random.choice(r)
 
 # --- TICKETS ---
 def gen_match_ticket(fix):
@@ -429,15 +437,12 @@ def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("�
 # --- HEADER PRINCIPAL (LOGO & BASELINE) ---
 header_container = st.container()
 with header_container:
-    # 1. Le Logo avec son contour design
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
         st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
         try: st.image("new_logo.png", use_column_width=True)
         except: st.warning("Image 'new_logo.png' manquante.")
         st.markdown('</div>', unsafe_allow_html=True)
-
-    # 2. Juste la phrase stylisée en dessous
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
 
 all_fixtures = get_upcoming_matches()
@@ -462,6 +467,7 @@ with st.sidebar:
         
     if st.button("📊 GRAPHIQUES DE COMPARAISON"): st.session_state.mode = "graphs"
 
+    # TICKETS CLIQUABLES
     if st.session_state.mode == "std" and st.session_state.ticket_data:
         st.success("✅ TICKET MATCHS (Unique)")
         for i, item in enumerate(st.session_state.ticket_data):
@@ -589,6 +595,7 @@ if st.session_state.mode == "graphs":
                     text = base_pie.mark_text(radius=150, fontSize=16, fontWeight='bold', fill='white').encode(text=alt.Text("Probabilité:Q", format=".0f"))
                     st.altair_chart(alt.layer(pie, text).properties(height=350, background='transparent').configure_view(strokeWidth=0), use_container_width=True, theme=None)
             else: st.warning("Données insuffisantes.")
+    else: st.info("Aucun match disponible.")
 
 # --- AFFICHAGE PRINCIPAL : MA SÉLECTION ---
 elif st.session_state.mode == "my_selection":
@@ -618,7 +625,7 @@ elif st.session_state.mode == "my_selection":
                         st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
                 with c_btn2:
                     if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True):
-                        st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.rerun()
+                        st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
 
         elif st.session_state.selection_validated:
             st.success("✅ Sélection enregistrée et isolée pour l'analyse.")
@@ -675,22 +682,29 @@ elif st.session_state.mode == "my_selection":
                         ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
                         plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                         
-                        with st.expander(f"📊 {h_name} vs {a_name} - Prédiction : {ai_pick} ({p[best_idx]*100:.0f}%)"):
-                            st.markdown(f"<p style='font-size:1.1rem; font-weight:bold; color:#00FF99; margin:0 0 5px 0;'>🎯 Pronostic Principal : {ai_pick}</p>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='color:#e0e0e0; font-size:0.95rem;'><i>{gen_smart_justif('🏆', ai_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
-                            st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px;'><div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div><b>Forme :</b> <span style='color:white;'>{hs['form']:.1f} - {as_['form']:.1f} pts</span></div><div><b>Buts :</b> <span style='color:white;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div></div>", unsafe_allow_html=True)
-                            
-                            if st.session_state.show_plan_b:
-                                st.markdown("<hr style='margin:10px 0; border-color:#444;'>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='font-size:1rem; font-weight:bold; color:#FF8800; margin:0 0 5px 0;'>⚠️ SCÉNARIO ALTERNATIF (PLAN B) : {plan_b_pick} ({p[sec_best_idx]*100:.0f}%)</p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='color:#ccc; font-size:0.85rem;'><i>{gen_plan_b_justif(plan_b_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
+                        # CHANGEMENT TOTAL DU TITRE SI PLAN B EST ACTIF
+                        if not st.session_state.show_plan_b:
+                            exp_title = f"📊 {h_name} vs {a_name} - Prédiction : {ai_pick} ({p[best_idx]*100:.0f}%)"
+                        else:
+                            exp_title = f"⚠️ {h_name} vs {a_name} - SURPRISE : {plan_b_pick} ({p[sec_best_idx]*100:.0f}%)"
+
+                        with st.expander(exp_title, expanded=st.session_state.show_plan_b):
+                            if not st.session_state.show_plan_b:
+                                st.markdown(f"<p style='font-size:1.1rem; font-weight:bold; color:#00FF99; margin:0 0 5px 0;'>🎯 Pronostic Principal : {ai_pick}</p>", unsafe_allow_html=True)
+                                st.markdown(f"<p style='color:#e0e0e0; font-size:0.95rem;'><i>{gen_smart_justif('🏆', ai_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px;'><div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div><b>Forme :</b> <span style='color:white;'>{hs['form']:.1f} - {as_['form']:.1f} pts</span></div><div><b>Buts :</b> <span style='color:white;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div></div>", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"<p style='font-size:1.1rem; font-weight:bold; color:#FF8800; margin:0 0 5px 0;'>⚠️ SCÉNARIO ALTERNATIF : {plan_b_pick}</p>", unsafe_allow_html=True)
+                                st.markdown(f"<p style='color:#e0e0e0; font-size:0.95rem;'><i>{gen_plan_b_justif(plan_b_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px; border-left: 3px solid #FF8800;'><div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div><b>Volatilité :</b> <span style='color:white;'>{max(hs['vol'], as_['vol']):.1f}</span></div><div><b>Risque Upset :</b> <span style='color:white;'>{q['upset_risk']:.0f}%</span></div></div>", unsafe_allow_html=True)
             
             c_ret, c_planb = st.columns(2)
             with c_ret:
                 if st.button("⬅️ Retour"): st.session_state.auto_analyzed = False; st.session_state.show_plan_b = False; st.rerun()
             with c_planb:
                 st.markdown("<div class='btn-plan-b'>", unsafe_allow_html=True)
-                if st.button("Et si ça se passait autrement ?", use_container_width=True):
+                btn_label = "Revenir au Pronostic Principal" if st.session_state.show_plan_b else "Et si ça se passait autrement ?"
+                if st.button(btn_label, use_container_width=True):
                     st.session_state.show_plan_b = not st.session_state.show_plan_b
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
