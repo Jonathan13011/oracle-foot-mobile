@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V44 (LE PIF DU FOOT - CARTES PRONOS & BUG FIX) ---
+# --- 1. CONFIGURATION V45 (LE PIF DU FOOT - FIX VISUEL HTML) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -261,7 +261,7 @@ def get_coherent_probabilities(h, a):
             elif i == j: pd += prob
             else: pa += prob
     tot = ph + pd + pa
-    if tot == 0: return [0.33, 0.34, 0.33] # Sécurité anti-crash
+    if tot == 0: return [0.33, 0.34, 0.33]
     return [pd/tot, ph/tot, pa/tot]
 
 def gen_smart_justif(type, val, h, a):
@@ -646,7 +646,7 @@ elif st.session_state.mode == "my_selection":
                                 if raw_h and raw_a:
                                     hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
                                     p = get_coherent_probabilities(hs, as_)
-                                    p = np.array(p).flatten() # Sécurité
+                                    p = np.array(p).flatten() 
                                     if len(p) < 3: p = [0.33, 0.34, 0.33]
                                     best_idx = np.argmax(p)
                                     ai_pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
@@ -678,7 +678,7 @@ elif st.session_state.mode == "my_selection":
                     if raw_h and raw_a:
                         hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
                         p = get_coherent_probabilities(hs, as_); q = get_quantum_analysis(hs, as_)
-                        p = np.array(p).flatten() # Anti-Crash
+                        p = np.array(p).flatten() 
                         if len(p) < 3: p = [0.33, 0.34, 0.33]
                         
                         sorted_indices = np.argsort(p)[::-1]
@@ -688,38 +688,19 @@ elif st.session_state.mode == "my_selection":
                         ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
                         plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                         
-                        # LOGIQUE D'AFFICHAGE DU PLAN B OU A
                         border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
-                        html_card = f"""
-                        <div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-bottom:15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>
-                            <div style='text-align:center; margin-bottom: 10px;'>
-                                <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{h_name}</span> 
-                                <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> 
-                                <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{a_name}</span>
-                            </div>
-                        """
+                        
+                        # CREATION DU BLOC HTML EN UNE LIGNE POUR ÉVITER LE BUG MARKDOWN DE STREAMLIT
+                        html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-bottom:15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>"
+                        html_card += f"<div style='text-align:center; margin-bottom: 10px;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name}</span> <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{a_name}</span></div>"
+                        
                         if not st.session_state.show_plan_b:
-                            html_card += f"""
-                            <div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'>
-                                <p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:"Kanit", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p>
-                                <p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p>
-                            </div>
-                            """
+                            html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:\"Kanit\", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p></div>"
                         else:
-                            html_card += f"""
-                            <div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px; border: 1px dashed #FF8800;'>
-                                <p style='margin:0; font-size:1.2rem; font-weight:900; color:#FF8800; font-family:"Kanit", sans-serif;'>⚠️ PLAN B : {plan_b_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[sec_best_idx]*100:.0f}%)</span></p>
-                                <p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_plan_b_justif(plan_b_pick, hs, as_)}</p>
-                            </div>
-                            """
-                        html_card += f"""
-                            <div style='display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa; background:#11141c; padding:10px; border-radius:6px;'>
-                                <div style='text-align:center;'><b>xG IA</b><br><span style='color:#00D4FF; font-weight:bold;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div>
-                                <div style='text-align:center;'><b>Forme</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['form']:.1f} - {as_['form']:.1f}</span></div>
-                                <div style='text-align:center;'><b>Buts</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div>
-                            </div>
-                        </div>
-                        """
+                            html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px; border: 1px dashed #FF8800;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#FF8800; font-family:\"Kanit\", sans-serif;'>⚠️ PLAN B : {plan_b_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[sec_best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_plan_b_justif(plan_b_pick, hs, as_)}</p></div>"
+                        
+                        html_card += f"<div style='display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa; background:#11141c; padding:10px; border-radius:6px;'><div style='text-align:center;'><b>xG IA</b><br><span style='color:#00D4FF; font-weight:bold;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div style='text-align:center;'><b>Forme</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['form']:.1f} - {as_['form']:.1f}</span></div><div style='text-align:center;'><b>Buts</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div></div></div>"
+                        
                         st.markdown(html_card, unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
