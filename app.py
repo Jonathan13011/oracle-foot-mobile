@@ -11,77 +11,88 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V40 (LE PIF DU FOOT - UX & PLAN B) ---
+# --- 1. CONFIGURATION V41 (DESIGN FINAL - HEADER & FONT SPORT) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
+# Import de la police Google Font 'Kanit' pour un look sport et épais
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,900;1,900&display=swap');
+
     /* FOND GÉNÉRAL & TEXTE */
     .stApp, [data-testid="stAppViewContainer"] { background-color: #0E1117 !important; color: #FFFFFF !important; }
     p, h1, h2, h3, div, span, label, h4, h5, h6, li, td, th { color: #FFFFFF !important; }
 
-    /* BRANDING TITRE PIF DU FOOT */
+    /* HEADER CONTAINER CENTRÉ */
+    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+        align-items: center;
+        text-align: center;
+    }
+
+    /* BRANDING TITRE PIF DU FOOT - NOUVELLE POLICE */
     .pif-title {
+        font-family: 'Kanit', sans-serif; /* Police sport épaisse */
         text-align: center;
         font-weight: 900;
-        font-size: 2.5rem;
+        font-size: 3.5rem; /* Plus gros pour l'impact */
+        text-transform: uppercase;
         background: linear-gradient(90deg, #00FF99, #00D4FF);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
+        margin-bottom: 5px;
+        margin-top: 5px;
+        line-height: 1;
+        letter-spacing: 1.5px;
+        text-shadow: 0px 0px 10px rgba(0, 255, 153, 0.3); /* Légère lueur */
     }
-    .pif-subtitle { text-align: center; font-style: italic; color: #aaaaaa !important; margin-top: -10px; margin-bottom: 30px; }
+    .pif-subtitle { 
+        text-align: center; 
+        font-family: 'Kanit', sans-serif;
+        font-weight: 400;
+        font-style: italic; 
+        color: #aaaaaa !important; 
+        font-size: 1.1rem;
+        margin-top: -5px; 
+        margin-bottom: 30px; 
+    }
 
     /* MA SÉLECTION TITRE */
-    .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 1.8rem; border-bottom: 2px solid #FFD700; padding-bottom: 10px; margin-bottom: 20px;}
+    .my-sel-title { text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; color: #FFD700 !important; font-size: 2rem; border-bottom: 2px solid #FFD700; padding-bottom: 10px; margin-bottom: 20px;}
 
-    /* FENÊTRES MODALES (DIALOGS IPHONE) */
+    /* FENÊTRES MODALES (DIALOGS) */
     div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
-    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; }
+    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-family: 'Kanit', sans-serif; }
     
-    /* ==============================================
-       FIX BUG GRAPHIQUES (INFOBULLES & MENU BLANC)
-       ============================================== */
+    /* FIX BUG GRAPHIQUES */
     #vg-tooltip-element { background-color: #1a1c24 !important; color: white !important; border: 1px solid #00FF99 !important; font-family: sans-serif; border-radius: 8px; }
     #vg-tooltip-element td { color: white !important; }
-    summary.vega-actions { display: none !important; } /* CACHE LE MENU BLANC FLOTTANT */
+    summary.vega-actions { display: none !important; }
 
-    /* SELECTBOX FIX */
-    div[data-baseweb="select"] > div { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
-    div[data-baseweb="select"] span { color: white !important; }
-    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] { background-color: #1a1c24 !important; border: 1px solid #333 !important; }
-    li[role="option"] { background-color: #1a1c24 !important; color: white !important; }
+    /* UI ELEMENTS (Selectbox, Buttons, Sidebar) */
+    div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], li[role="option"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #00FF99 !important; color: black !important; }
     div[data-baseweb="select"] svg { fill: white !important; }
+    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; }
 
-    /* SIDEBAR */
-    [data-testid="stSidebar"] { background-color: #0E1117 !important; border-right: 1px solid #333 !important; }
-    [data-testid="stSidebarCollapsedControl"] { color: #FFFFFF !important; background-color: #1a1c24 !important; border: 1px solid #333; }
-    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; }
+    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; font-family: 'Kanit', sans-serif; }
+    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; font-family: 'Kanit', sans-serif; }
+    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4) !important; font-family: 'Kanit', sans-serif; }
 
-    /* BOUTON VALIDER (VERT) & AUTO (BLEU) */
-    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; }
-    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; }
-    
-    /* BOUTON PLAN B (ORANGE) */
-    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4) !important; }
-
-    /* HEADER MATCH & EXPANDERS */
+    /* MATCH HEADER & TABLES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
     .team-logo { width: 45px; height: 45px; object-fit: contain; margin-bottom: 3px; }
     .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
-    .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; }
+    .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; font-family: 'Kanit', sans-serif; }
     
     div[data-testid="stExpander"] { background-color: #1a1c24 !important; border-color: #333 !important; border-radius: 8px !important; }
-    div[data-testid="stExpander"] summary p { color: #00FF99 !important; font-weight: bold !important; }
+    div[data-testid="stExpander"] summary p { color: #00FF99 !important; font-weight: bold !important; font-family: 'Kanit', sans-serif; }
 
-    /* PROBS & STATS */
     .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
     .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
     .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
-    .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; }
+    .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; font-family: 'Kanit', sans-serif; }
     .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; align-items: center; }
     .stat-label { color: #aaa; font-size: 0.8rem; } .stat-val { font-weight: bold; font-size: 0.9rem; }
     
@@ -89,7 +100,7 @@ st.markdown("""
     
     .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; background-color: transparent !important; }
     .comp-table th, .comp-table td { border: 1px solid #444; padding: 10px; text-align: center; }
-    .comp-table th { background-color: #262935; color: #00FF99 !important; font-weight: bold; }
+    .comp-table th { background-color: #262935; color: #00FF99 !important; font-weight: bold; font-family: 'Kanit', sans-serif; }
     .comp-table tr:nth-child(even) { background-color: #1a1c24; }
     
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; } }
@@ -271,7 +282,6 @@ def gen_smart_justif(type, val, h, a):
     return random.choice(r) if r else "Analyse statistique favorable."
 
 def gen_plan_b_justif(val, h, a):
-    # Justifications pour le scénario "Et si ça se passait autrement"
     if "Domicile" in val: return f"Si {a.get('name')} craque sous la pression, {h.get('name')} pourrait l'emporter grâce à l'avantage du terrain."
     elif "Extérieur" in val: return f"Si {h.get('name')} se découvre trop, {a.get('name')} a les armes pour créer l'exploit en contre."
     elif "Nul" in val: return "Si les défenses prennent le pas sur les attaques, le match pourrait se verrouiller complètement."
@@ -332,7 +342,7 @@ def update_user_selection(fix_id, match_str, home_id, away_id, league_id):
     else:
         if fix_id in st.session_state.persisted_selections: del st.session_state.persisted_selections[fix_id]
 
-# --- DIALOGS (FENÊTRES MODALES) ---
+# --- DIALOGS ---
 @st.dialog("🗓️ HISTORIQUE DES 5 DERNIERS MATCHS")
 def show_history_dialog(h_name, h_hist, a_name, a_hist):
     c1, c2 = st.columns(2)
@@ -421,12 +431,19 @@ def show_final_verdict(h, a, p, q, enjeu_str):
 def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
 
 # --- HEADER PRINCIPAL (LOGO & TITRE) ---
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    try: st.image("IMG_5755.jpg", use_column_width=True)
-    except: st.markdown("<h1 class='pif-title'>👃 LE PIF DU FOOT</h1>", unsafe_allow_html=True)
+# Utilisation d'un conteneur pour centrer verticalement les éléments
+header_container = st.container()
+with header_container:
+    # 1. Le Logo (Centré via des colonnes vides autour)
+    c_l, c_img, c_r = st.columns([1, 1, 1])
+    with c_img:
+        # IMPORTANT : Assurez-vous que votre fichier image s'appelle 'new_logo.jpg'
+        try: st.image("new_logo.jpg", use_column_width=True)
+        except: st.warning("Image 'new_logo.jpg' non trouvée. Veuillez la renommer et l'uploader.")
+
+    # 2. Le Titre et Sous-titre (Juste en dessous)
+    st.markdown("<h1 class='pif-title'>LE PIF DU FOOT</h1>", unsafe_allow_html=True)
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
-# st.caption("Anciennement Oracle V40") # Commentaire technique
 
 all_fixtures = get_upcoming_matches()
 
