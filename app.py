@@ -437,9 +437,9 @@ with header_container:
     # 1. Le Logo (Centré via des colonnes vides autour)
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
-        # IMPORTANT : Assurez-vous que votre fichier image s'appelle 'new_logo.jpg'
-        try: st.image("new_logo.jpg", use_column_width=True)
-        except: st.warning("Image 'new_logo.jpg' non trouvée. Veuillez la renommer et l'uploader.")
+        # IMPORTANT : Assurez-vous que votre fichier image s'appelle 'new_logo.png'
+        try: st.image("new_logo.png", use_column_width=True)
+        except: st.warning("Image 'new_logo.png' non trouvée. Veuillez la renommer et l'uploader.")
 
     # 2. Le Titre et Sous-titre (Juste en dessous)
     st.markdown("<h1 class='pif-title'>LE PIF DU FOOT</h1>", unsafe_allow_html=True)
