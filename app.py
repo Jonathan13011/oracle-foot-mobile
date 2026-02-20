@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V43 (LE PIF DU FOOT - PLAN B INTELLIGENT) ---
+# --- 1. CONFIGURATION V44 (LE PIF DU FOOT - CARTES PRONOS & BUG FIX) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -261,6 +261,7 @@ def get_coherent_probabilities(h, a):
             elif i == j: pd += prob
             else: pa += prob
     tot = ph + pd + pa
+    if tot == 0: return [0.33, 0.34, 0.33] # Sécurité anti-crash
     return [pd/tot, ph/tot, pa/tot]
 
 def gen_smart_justif(type, val, h, a):
@@ -276,7 +277,6 @@ def gen_smart_justif(type, val, h, a):
     elif "Nul" in val: r.append("Forces équilibrées et forte tendance à la neutralisation.")
     return random.choice(r) if r else "Analyse statistique favorable."
 
-# NOUVEAU : JUSTIFICATIONS SPÉCIFIQUES POUR LE PLAN B (Avocat du Diable)
 def gen_plan_b_justif(val, h, a):
     r = []
     h_name = h.get('name', 'Domicile'); a_name = a.get('name', 'Extérieur')
@@ -645,7 +645,10 @@ elif st.session_state.mode == "my_selection":
                                 raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
                                 if raw_h and raw_a:
                                     hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-                                    p = get_coherent_probabilities(hs, as_); best_idx = np.argmax(p)
+                                    p = get_coherent_probabilities(hs, as_)
+                                    p = np.array(p).flatten() # Sécurité
+                                    if len(p) < 3: p = [0.33, 0.34, 0.33]
+                                    best_idx = np.argmax(p)
                                     ai_pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
                                     ai_results[fix_id] = {"ai_pick": ai_pick, "prob": p[best_idx]*100, "justif": gen_smart_justif("🏆", ai_pick, hs, as_), "match": data['match'], "user_pick": data['user_pick']}
                         st.session_state.selection_ai_results = ai_results; st.session_state.selection_analyzed = True; st.rerun()
@@ -665,7 +668,7 @@ elif st.session_state.mode == "my_selection":
                     if st.button("🔄 Refaire une sélection"): st.session_state.persisted_selections = {}; st.session_state.selection_validated = False; st.session_state.selection_analyzed = False; st.rerun()
 
         elif st.session_state.auto_analyzed:
-            st.markdown("### 🤖 ANALYSE AUTOMATIQUE DE LA JOURNÉE")
+            st.markdown("<h3 style='text-align:center;'>🤖 ANALYSE AUTOMATIQUE DE LA JOURNÉE</h3>", unsafe_allow_html=True)
             matches_to_analyze = [f for f in all_fixtures if f['fixture']['date'][:10] == st.session_state.selected_auto_date]
             with st.spinner("L'IA dissèque tous les matchs et calcule les algorithmes..."):
                 for f in matches_to_analyze:
@@ -675,29 +678,51 @@ elif st.session_state.mode == "my_selection":
                     if raw_h and raw_a:
                         hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
                         p = get_coherent_probabilities(hs, as_); q = get_quantum_analysis(hs, as_)
+                        p = np.array(p).flatten() # Anti-Crash
+                        if len(p) < 3: p = [0.33, 0.34, 0.33]
                         
                         sorted_indices = np.argsort(p)[::-1]
-                        best_idx = sorted_indices[0]; sec_best_idx = sorted_indices[1]
+                        best_idx = sorted_indices[0]
+                        sec_best_idx = sorted_indices[1] if len(sorted_indices) > 1 else best_idx
                         
                         ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
                         plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                         
-                        # CHANGEMENT TOTAL DU TITRE SI PLAN B EST ACTIF
+                        # LOGIQUE D'AFFICHAGE DU PLAN B OU A
+                        border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
+                        html_card = f"""
+                        <div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-bottom:15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>
+                            <div style='text-align:center; margin-bottom: 10px;'>
+                                <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{h_name}</span> 
+                                <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> 
+                                <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{a_name}</span>
+                            </div>
+                        """
                         if not st.session_state.show_plan_b:
-                            exp_title = f"📊 {h_name} vs {a_name} - Prédiction : {ai_pick} ({p[best_idx]*100:.0f}%)"
+                            html_card += f"""
+                            <div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'>
+                                <p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:"Kanit", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p>
+                                <p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p>
+                            </div>
+                            """
                         else:
-                            exp_title = f"⚠️ {h_name} vs {a_name} - SURPRISE : {plan_b_pick} ({p[sec_best_idx]*100:.0f}%)"
-
-                        with st.expander(exp_title, expanded=st.session_state.show_plan_b):
-                            if not st.session_state.show_plan_b:
-                                st.markdown(f"<p style='font-size:1.1rem; font-weight:bold; color:#00FF99; margin:0 0 5px 0;'>🎯 Pronostic Principal : {ai_pick}</p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='color:#e0e0e0; font-size:0.95rem;'><i>{gen_smart_justif('🏆', ai_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px;'><div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div><b>Forme :</b> <span style='color:white;'>{hs['form']:.1f} - {as_['form']:.1f} pts</span></div><div><b>Buts :</b> <span style='color:white;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div></div>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"<p style='font-size:1.1rem; font-weight:bold; color:#FF8800; margin:0 0 5px 0;'>⚠️ SCÉNARIO ALTERNATIF : {plan_b_pick}</p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='color:#e0e0e0; font-size:0.95rem;'><i>{gen_plan_b_justif(plan_b_pick, hs, as_)}</i></p>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa; background:#1a1c24; padding:8px; border-radius:6px; border-left: 3px solid #FF8800;'><div><b>xG IA :</b> <span style='color:white;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div><div><b>Volatilité :</b> <span style='color:white;'>{max(hs['vol'], as_['vol']):.1f}</span></div><div><b>Risque Upset :</b> <span style='color:white;'>{q['upset_risk']:.0f}%</span></div></div>", unsafe_allow_html=True)
+                            html_card += f"""
+                            <div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px; border: 1px dashed #FF8800;'>
+                                <p style='margin:0; font-size:1.2rem; font-weight:900; color:#FF8800; font-family:"Kanit", sans-serif;'>⚠️ PLAN B : {plan_b_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[sec_best_idx]*100:.0f}%)</span></p>
+                                <p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_plan_b_justif(plan_b_pick, hs, as_)}</p>
+                            </div>
+                            """
+                        html_card += f"""
+                            <div style='display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa; background:#11141c; padding:10px; border-radius:6px;'>
+                                <div style='text-align:center;'><b>xG IA</b><br><span style='color:#00D4FF; font-weight:bold;'>{q['xg_h']:.1f} - {q['xg_a']:.1f}</span></div>
+                                <div style='text-align:center;'><b>Forme</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['form']:.1f} - {as_['form']:.1f}</span></div>
+                                <div style='text-align:center;'><b>Buts</b><br><span style='color:#00D4FF; font-weight:bold;'>{hs['avg_gf']:.1f} - {as_['avg_gf']:.1f}</span></div>
+                            </div>
+                        </div>
+                        """
+                        st.markdown(html_card, unsafe_allow_html=True)
             
+            st.markdown("<br>", unsafe_allow_html=True)
             c_ret, c_planb = st.columns(2)
             with c_ret:
                 if st.button("⬅️ Retour"): st.session_state.auto_analyzed = False; st.session_state.show_plan_b = False; st.rerun()
@@ -746,6 +771,11 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
                 raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
                 hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
                 p = get_coherent_probabilities(hs, as_) 
+                if model:
+                    try:
+                        vec = np.array([[match_data['league']['id'], hs['form'], hs['avg_gf'], hs['avg_ga'], as_['form'], as_['avg_gf'], as_['avg_ga']]])
+                        p = model.predict_proba(vec)[0]
+                    except: pass
                 st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
 
         if b2.button("🧬 QUANTUM SNIPER", use_container_width=True):
