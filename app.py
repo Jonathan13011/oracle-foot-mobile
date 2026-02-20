@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V47 (LE PIF DU FOOT - BANKROLL PRO) ---
+# --- 1. CONFIGURATION V48 (BANKROLL NATIVE & IA INTÉGRÉE) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -77,18 +77,10 @@ st.markdown("""
     button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; font-family: 'Kanit', sans-serif; }
     button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; font-family: 'Kanit', sans-serif; }
     .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4) !important; font-family: 'Kanit', sans-serif; }
-
+    
     /* BOUTON DORE SPÉCIFIQUE (MA BANKROLL) */
-    button:has(p:contains("MA BANKROLL")) { 
-        background: linear-gradient(90deg, #FFD700, #DAA520) !important; 
-        border: none !important; 
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; 
-    }
-    button:has(p:contains("MA BANKROLL")) p {
-        color: #0E1117 !important;
-        font-weight: 900 !important;
-        font-family: 'Kanit', sans-serif !important;
-    }
+    button:has(p:contains("MA BANKROLL")) { background: linear-gradient(90deg, #FFD700, #DAA520) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; }
+    button:has(p:contains("MA BANKROLL")) p { color: #0E1117 !important; font-weight: 900 !important; font-family: 'Kanit', sans-serif !important; }
 
     /* MATCH HEADER & TABLES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; }
@@ -143,7 +135,7 @@ if 'auto_trigger_analyze' not in st.session_state: st.session_state.auto_trigger
 if 'collapse_sidebar' not in st.session_state: st.session_state.collapse_sidebar = False
 if 'top_suggestions' not in st.session_state: st.session_state.top_suggestions = []
 
-# STATES BANKROLL (10 Tableaux persistants)
+# STATES BANKROLL (10 Tableaux persistants avec la nouvelle colonne IA)
 if 'bankrolls' not in st.session_state:
     st.session_state.bankrolls = {}
     for i in range(1, 11):
@@ -155,9 +147,15 @@ if 'bankrolls' not in st.session_state:
             "MISES": [10.0 for _ in range(20)],
             "RESULTATS": ["⏳ En attente" for _ in range(20)],
             "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
-            "Total Cumulé": ["🏦 0.00 €" for _ in range(20)]
+            "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
+            "Prono de l'IA": ["" for _ in range(20)] # NOUVELLE COLONNE
         })
         st.session_state.bankrolls[f"Tableau {i}"] = df_init
+else:
+    # Rétrocompatibilité : Ajoute la colonne si elle n'existe pas dans les anciennes sessions
+    for k in st.session_state.bankrolls:
+        if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
+            st.session_state.bankrolls[k]["Prono de l'IA"] = ""
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
@@ -317,9 +315,7 @@ def gen_smart_justif(type, val, h, a):
 
 def gen_plan_b_justif(val, h, a):
     r = []
-    h_name = str(h.get('name', 'Domicile'))
-    a_name = str(a.get('name', 'Extérieur'))
-    val_str = str(val)
+    h_name = str(h.get('name', 'Domicile')); a_name = str(a.get('name', 'Extérieur')); val_str = str(val)
     if h_name in val_str or "Domicile" in val_str:
         r.extend([f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.", f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique."])
     elif a_name in val_str or "Extérieur" in val_str:
@@ -383,8 +379,7 @@ def gen_scorer_ticket(fix):
 def generate_top_10_suggestions(fixtures):
     candidates = []
     bar = st.progress(0, text="L'IA scanne les opportunités les plus fiables des 3 prochains jours...")
-    fix_copy = fixtures.copy()
-    limit = min(len(fix_copy), 40) 
+    fix_copy = fixtures.copy(); limit = min(len(fix_copy), 40) 
     for i, f in enumerate(fix_copy[:limit]):
         hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
@@ -394,8 +389,7 @@ def generate_top_10_suggestions(fixtures):
                 p = get_coherent_probabilities(hs, as_)
                 p = np.array(p).flatten()
                 if len(p) >= 3:
-                    best_idx = np.argmax(p); conf = p[best_idx] * 100
-                    q = get_quantum_analysis(hs, as_)
+                    best_idx = np.argmax(p); conf = p[best_idx] * 100; q = get_quantum_analysis(hs, as_)
                     score = conf - (q['upset_risk'] * 0.2)
                     pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
                     candidates.append({'score': score, 'conf': conf, 'f': f, 'pick': pick, 'hs': hs, 'as_': as_, 'q': q})
@@ -424,6 +418,12 @@ if all_fixtures:
     teams = set([f['teams']['home']['name'] for f in all_fixtures] + [f['teams']['away']['name'] for f in all_fixtures])
     prono_options += list(teams)
 
+# --- STYLER POUR COLONNE IA DANS BANKROLL ---
+def style_prono_col(col):
+    if col.name == "Prono de l'IA":
+        return ['background-color: #0a2918; color: #00FF99; font-weight: bold;'] * len(col)
+    return [''] * len(col)
+
 # --- DIALOGS (MODALES) ---
 @st.dialog("📊 HISTORIQUE & CLASSEMENT")
 def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_hist, a_form, league_id):
@@ -433,7 +433,6 @@ def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_h
         for t in standings:
             if t['team']['id'] == h_id: rank_h = t
             if t['team']['id'] == a_id: rank_a = t
-    
     c1, c2 = st.columns(2)
     with c1:
         st.markdown(f"<h4 style='color:#00FF99;text-align:center;font-family:\"Kanit\", sans-serif;'>{h_name}</h4>", unsafe_allow_html=True)
@@ -479,52 +478,6 @@ def show_scan_dialog(f_data):
         """
         st.markdown(html_content, unsafe_allow_html=True)
         if h2h: st.info(f"⚔️ **Historique H2H :** Sur les confrontations récentes, on observe une moyenne de **{h2h['avg_goals']:.1f} buts/match**.")
-
-@st.dialog("💰 TABLEAU DE BORD - BANKROLL", width="large")
-def open_bankroll_table(table_choice):
-    st.markdown(f"<h3 style='color:#FFD700; text-align:center; font-family:\"Kanit\", sans-serif;'>{table_choice.upper()}</h3>", unsafe_allow_html=True)
-    
-    current_df = st.session_state.bankrolls[table_choice].copy()
-    
-    edited_df = st.data_editor(
-        current_df,
-        column_config={
-            "PARIS": st.column_config.TextColumn("PARIS", disabled=True),
-            "NOMS DES EQUIPES": st.column_config.SelectboxColumn("NOMS DES EQUIPES", options=match_options, width="medium", help="Commencez à taper pour filtrer"),
-            "COTES": st.column_config.NumberColumn("COTES", min_value=1.0, format="%.2f", width="small"),
-            "PRONOS": st.column_config.SelectboxColumn("PRONOS", options=prono_options, width="medium"),
-            "MISES": st.column_config.NumberColumn("MISES (€)", min_value=0.0, format="%.2f", width="small"),
-            "RESULTATS": st.column_config.SelectboxColumn("RESULTATS", options=["⏳ En attente", "✅ Victoire du pronos", "❌ Défaite du pronos", "➖ Match Nul"], width="medium"),
-            "RESULTATS FINANCIERS": st.column_config.TextColumn("RESULTATS FINANCIERS", disabled=True, width="medium"),
-            "Total Cumulé": st.column_config.TextColumn("Total Cumulé", disabled=True, width="medium"),
-        },
-        use_container_width=True,
-        hide_index=True,
-        height=600,
-        key=f"editor_{table_choice}"
-    )
-    
-    if not edited_df.equals(current_df):
-        total_cumule = 0.0
-        for idx, row in edited_df.iterrows():
-            mise = float(row["MISES"]) if pd.notnull(row["MISES"]) else 0.0
-            cote = float(row["COTES"]) if pd.notnull(row["COTES"]) else 1.0
-            res = row["RESULTATS"]
-            
-            if res == "✅ Victoire du pronos":
-                profit = (mise * cote) - mise
-                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"🟢 + {profit:.2f} €"
-                total_cumule += profit
-            elif res == "❌ Défaite du pronos":
-                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"🔴 - {mise:.2f} €"
-                total_cumule -= mise
-            else:
-                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"⚪ 0.00 €"
-                
-            edited_df.at[idx, "Total Cumulé"] = f"🏦 {total_cumule:.2f} €"
-
-        st.session_state.bankrolls[table_choice] = edited_df
-        st.rerun()
 
 @st.dialog("🧠 RAYON X : ANALYSE DE L'IA")
 def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
@@ -641,13 +594,12 @@ with st.sidebar:
         st.session_state.mode = "suggestions"
         st.session_state.collapse_sidebar = True
         
-    # BOUTON BANKROLL DORE
     if st.button("💰 MA BANKROLL"):
         st.session_state.mode = "bankroll"
         st.session_state.collapse_sidebar = True
 
     if st.session_state.mode == "std" and st.session_state.ticket_data:
-        st.success("✅ TICKET MATCHS (Unique)")
+        st.success("✅ TICKET MATCHS")
         for i, item in enumerate(st.session_state.ticket_data):
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             icon = "⚖️" if "Nul" in item['v'] else ("🔒" if "-2.5" in item['v'] else ("🥅" if "OUI" in item['v'] else ("⚽" if "+2.5" in item['v'] else "🏆")))
@@ -662,27 +614,99 @@ with st.sidebar:
 
 
 # =====================================================================
-# --- AFFICHAGE : MA BANKROLL ---
+# --- AFFICHAGE : MA BANKROLL (NATIVE SUR PAGE CENTRALE) ---
 # =====================================================================
 if st.session_state.mode == "bankroll":
     st.markdown("<h2 class='my-sel-title' style='color:#FFD700 !important; border-color:#FFD700;'>💰 GESTION DE BANKROLL</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#aaa; font-size:1.1rem;'>Sélectionnez un tableau de suivi pour l'ouvrir.</p>", unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        table_choice = st.selectbox("📂 Sélectionnez votre tableau :", [f"Tableau {i}" for i in range(1, 11)], label_visibility="collapsed")
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button(f"📂 OUVRIR LE {table_choice.upper()}", use_container_width=True):
-            open_bankroll_table(table_choice)
+        table_choice = st.selectbox("📂 Sélectionnez votre tableau de suivi :", [f"Tableau {i}" for i in range(1, 11)])
+    
+    st.write("Remplissez vos pronostics ci-dessous :")
+    
+    current_df = st.session_state.bankrolls[table_choice].copy()
+    
+    # Ordre des colonnes pour s'assurer que "Prono de l'IA" est bien à droite
+    cols_order = ["PARIS", "NOMS DES EQUIPES", "COTES", "PRONOS", "MISES", "RESULTATS", "RESULTATS FINANCIERS", "Total Cumulé", "Prono de l'IA"]
+    current_df = current_df[cols_order]
+    
+    # Application du Style Pandas pour colorer la colonne "Prono de l'IA" en vert foncé
+    styled_df = current_df.style.apply(style_prono_col, axis=0)
+    
+    edited_df = st.data_editor(
+        styled_df,
+        column_config={
+            "PARIS": st.column_config.TextColumn("PARIS", disabled=True),
+            "NOMS DES EQUIPES": st.column_config.SelectboxColumn("NOMS DES EQUIPES", options=match_options, width="medium"),
+            "COTES": st.column_config.NumberColumn("COTES", min_value=1.0, format="%.2f", width="small"),
+            "PRONOS": st.column_config.SelectboxColumn("PRONOS", options=prono_options, width="medium"),
+            "MISES": st.column_config.NumberColumn("MISES (€)", min_value=0.0, format="%.2f", width="small"),
+            "RESULTATS": st.column_config.SelectboxColumn("RESULTATS", options=["⏳ En attente", "✅ Victoire du pronos", "❌ Défaite du pronos", "➖ Match Nul"], width="medium"),
+            "RESULTATS FINANCIERS": st.column_config.TextColumn("RESULTATS FINANCIERS", disabled=True, width="medium"),
+            "Total Cumulé": st.column_config.TextColumn("Total Cumulé", disabled=True, width="medium"),
+            "Prono de l'IA": st.column_config.TextColumn("Prono de l'IA", disabled=True, width="medium")
+        },
+        use_container_width=True,
+        hide_index=True,
+        height=750,
+        key=f"editor_main_{table_choice}"
+    )
+    
+    if not edited_df.equals(current_df):
+        # 1. Update AI Prono if Match changed
+        for idx in range(len(edited_df)):
+            old_match = current_df.at[idx, "NOMS DES EQUIPES"]
+            new_match = edited_df.at[idx, "NOMS DES EQUIPES"]
+            if new_match != old_match and pd.notnull(new_match) and new_match != "":
+                match_found = False
+                for f in all_fixtures:
+                    f_str = f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}"
+                    if f_str == new_match:
+                        hid = f['teams']['home']['id']; aid = f['teams']['away']['id']
+                        h_name = f['teams']['home']['name']; a_name = f['teams']['away']['name']
+                        raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                        if raw_h and raw_a:
+                            hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                            p = get_coherent_probabilities(hs, as_)
+                            p = np.array(p).flatten()
+                            if len(p) >= 3:
+                                best_idx = np.argmax(p)
+                                ai_pick = f"🟢 {h_name}" if best_idx==1 else (f"🟢 {a_name}" if best_idx==2 else "🟢 Match Nul")
+                                edited_df.at[idx, "Prono de l'IA"] = ai_pick
+                        match_found = True
+                        break
+                if not match_found: edited_df.at[idx, "Prono de l'IA"] = ""
+            elif new_match == "" or pd.isnull(new_match):
+                edited_df.at[idx, "Prono de l'IA"] = ""
+
+        # 2. Update Financials
+        total_cumule = 0.0
+        for idx, row in edited_df.iterrows():
+            mise = float(row["MISES"]) if pd.notnull(row["MISES"]) else 0.0
+            cote = float(row["COTES"]) if pd.notnull(row["COTES"]) else 1.0
+            res = row["RESULTATS"]
             
-    st.markdown("<br><p style='text-align:center; color:#555; font-size:0.85rem;'>💡 Astuce : Passez Streamlit en thème Sombre (Settings > Theme > Dark) pour un affichage optimal du tableau.</p>", unsafe_allow_html=True)
+            if res == "✅ Victoire du pronos":
+                profit = (mise * cote) - mise
+                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"🟢 + {profit:.2f} €"
+                total_cumule += profit
+            elif res == "❌ Défaite du pronos":
+                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"🔴 - {mise:.2f} €"
+                total_cumule -= mise
+            else:
+                edited_df.at[idx, "RESULTATS FINANCIERS"] = f"⚪ 0.00 €"
+                
+            edited_df.at[idx, "Total Cumulé"] = f"🏦 {total_cumule:.2f} €"
+
+        st.session_state.bankrolls[table_choice] = edited_df
+        st.rerun()
 
 # =====================================================================
 # --- AFFICHAGE : SUGGESTIONS ---
 # =====================================================================
 elif st.session_state.mode == "suggestions":
     st.markdown("<h2 class='my-sel-title'>💡 TOP 10 SUGGESTIONS SÉCURISÉES</h2>", unsafe_allow_html=True)
-    
     if all_fixtures:
         today_str = datetime.now().strftime("%Y-%m-%d")
         if not st.session_state.top_suggestions or st.session_state.get('suggestions_date') != today_str:
