@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V44 (LE PIF DU FOOT - CARTES PRONOS & FIX BUG) ---
+# --- 1. CONFIGURATION V46 (LE PIF DU FOOT - NAVIGATION & SCANNER IA) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -68,7 +68,9 @@ st.markdown("""
     div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], li[role="option"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #00FF99 !important; color: black !important; }
     div[data-baseweb="select"] svg { fill: white !important; }
-    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
+    
+    /* SIDEBAR TEXTS */
+    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2, [data-testid="stSidebarUserContent"] h3 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
 
     button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; font-family: 'Kanit', sans-serif; }
     button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; font-family: 'Kanit', sans-serif; }
@@ -120,6 +122,9 @@ if 'selection_analyzed' not in st.session_state: st.session_state.selection_anal
 if 'selection_ai_results' not in st.session_state: st.session_state.selection_ai_results = {}
 if 'auto_analyzed' not in st.session_state: st.session_state.auto_analyzed = False
 if 'show_plan_b' not in st.session_state: st.session_state.show_plan_b = False
+
+# NOUVEAU STATE POUR LA REDIRECTION AUTO DEPUIS LA LISTE
+if 'auto_trigger_analyze' not in st.session_state: st.session_state.auto_trigger_analyze = False
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
@@ -277,32 +282,18 @@ def gen_smart_justif(type, val, h, a):
     elif "Nul" in val: r.append("Forces équilibrées et forte tendance à la neutralisation mutuelle.")
     return random.choice(r) if r else "Analyse statistique favorable."
 
-# --- CORRECTION DU BUG PLAN B ---
 def gen_plan_b_justif(val, h, a):
     r = []
     h_name = str(h.get('name', 'Domicile'))
     a_name = str(a.get('name', 'Extérieur'))
     val_str = str(val)
-    
     if h_name in val_str or "Domicile" in val_str:
-        r.extend([
-            f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.",
-            f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique."
-        ])
+        r.extend([f"Le football réserve des surprises. Poussé par son public, {h_name} pourrait déjouer les pronostics si {a_name} manque de réalisme.", f"Un bloc bas de {h_name} suivi d'un exploit individuel à domicile est un scénario piège classique."])
     elif a_name in val_str or "Extérieur" in val_str:
-        r.extend([
-            f"Attention au 'Hold-up'. {a_name} a le profil parfait pour subir et piquer en contre si {h_name} se découvre trop.",
-            f"Si le match s'enlise, l'opportunisme de {a_name} à l'extérieur pourrait faire très mal contre le cours du jeu."
-        ])
+        r.extend([f"Attention au 'Hold-up'. {a_name} a le profil parfait pour subir et piquer en contre si {h_name} se découvre trop.", f"Si le match s'enlise, l'opportunisme de {a_name} à l'extérieur pourrait faire très mal contre le cours du jeu."])
     elif "Nul" in val_str:
-        r.extend([
-            f"La peur de perdre pourrait figer le jeu. Un match verrouillé tactiquement menant à un score de parité est très crédible.",
-            f"Si les gardiens sont dans un grand jour, ce match a tout du match piège qui se termine sur un score nul."
-        ])
-        
-    if len(r) == 0:
-        return "Scénario alternatif envisagé par l'IA en cas de contre-performance du favori."
-        
+        r.extend([f"La peur de perdre pourrait figer le jeu. Un match verrouillé tactiquement menant à un score de parité est très crédible.", f"Si les gardiens sont dans un grand jour, ce match a tout du match piège qui se termine sur un score nul."])
+    if len(r) == 0: return "Scénario alternatif envisagé par l'IA en cas de contre-performance du favori."
     return random.choice(r)
 
 def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
@@ -362,7 +353,12 @@ def update_user_selection(fix_id, match_str, home_id, away_id, league_id):
     else:
         if fix_id in st.session_state.persisted_selections: del st.session_state.persisted_selections[fix_id]
 
-# --- DIALOGS ---
+# --- FONCTION REDIRECTION AUTO (LISTE PRINCIPALE) ---
+def set_match_and_analyze(m_str):
+    st.session_state.main_match_select = m_str
+    st.session_state.auto_trigger_analyze = True
+
+# --- DIALOGS (MODALES) ---
 @st.dialog("📊 HISTORIQUE & CLASSEMENT")
 def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_hist, a_form, league_id):
     standings = get_standings(league_id)
@@ -389,6 +385,58 @@ def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_h
         for m in a_hist[:5]:
             col = "#00FF99" if m['res']=="✅" else ("#FFA500" if m['res']=="➖" else "#FF4B4B")
             st.markdown(f"<div style='text-align:center; padding:5px; margin:2px; background:#1a1c24; border-radius:5px; border-left:3px solid {col}; font-size:0.85rem;'><b>{m['res']}</b> | Score: {m['gf']} - {m['ga']}</div>", unsafe_allow_html=True)
+
+@st.dialog("🧠 DÉCONSTRUCTION DE L'ANALYSE IA")
+def show_scan_dialog(f_data):
+    hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
+    h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
+    
+    with st.spinner("L'IA compile l'intégralité des données..."):
+        raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+        if not raw_h or not raw_a:
+            st.warning("Données insuffisantes pour cette rencontre.")
+            return
+        
+        hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+        p = get_coherent_probabilities(hs, as_)
+        p = np.array(p).flatten()
+        if len(p) < 3: p = [0.33, 0.34, 0.33]
+        q = get_quantum_analysis(hs, as_)
+        adv = get_advanced_mock_data(hs, as_)
+        h2h = get_h2h_stats(hid, aid)
+        
+        best_idx = np.argmax(p)
+        ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
+        
+        st.markdown(f"<h3 style='color:#00FF99;text-align:center;'>Verdict Final : {ai_pick}</h3>", unsafe_allow_html=True)
+        st.divider()
+        st.markdown("#### ⚙️ Déconstruction de l'Analyse :")
+        
+        html_content = f"""
+        <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #00D4FF; margin-bottom:10px;'>
+            <b style='color:white;'>📊 Probabilités Mathématiques</b><br>
+            <span style='color:#ccc; font-size:0.9rem;'>Modèle de Poisson basé sur les moyennes de buts. Confiance estimée à <b>{p[best_idx]*100:.1f}%</b>. ({hs['avg_gf']:.1f} buts pour {h_name} vs {as_['avg_gf']:.1f} pour {a_name}).</span>
+        </div>
+        
+        <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #FFD700; margin-bottom:10px;'>
+            <b style='color:white;'>🧬 Moteur Quantique (xG)</b><br>
+            <span style='color:#ccc; font-size:0.9rem;'>Rapport Expected Goals : <b>{q['xg_h']:.2f}</b> vs <b>{q['xg_a']:.2f}</b>. L'algorithme a isolé le score exact de <b>{q['sniper_score']}</b> parmi 10 000 matrices.</span>
+        </div>
+        
+        <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #FF4B4B; margin-bottom:10px;'>
+            <b style='color:white;'>🔥 Dynamique & Forme</b><br>
+            <span style='color:#ccc; font-size:0.9rem;'>Indice de forme récent : <b>{hs['form']:.1f} pts/m</b> pour {h_name} contre <b>{as_['form']:.1f} pts/m</b> pour {a_name}.</span>
+        </div>
+        
+        <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #00FF99;'>
+            <b style='color:white;'>♟️ Configuration Tactique</b><br>
+            <span style='color:#ccc; font-size:0.9rem;'>L'IA projette une possession de <b>{adv['h_poss']:.0f}%</b> pour {h_name}. Intensité de pressing (PPDA) : {adv['h_ppda']:.1f} vs {adv['a_ppda']:.1f}.</span>
+        </div>
+        """
+        st.markdown(html_content, unsafe_allow_html=True)
+        if h2h:
+            st.info(f"⚔️ **Historique H2H :** Sur les confrontations récentes, on observe une moyenne de **{h2h['avg_goals']:.1f} buts/match**.")
+
 
 @st.dialog("🧠 RAYON X : ANALYSE DE L'IA")
 def show_analysis_dialog(type_analyse, titre, pred, h, a, extra=None):
@@ -475,9 +523,9 @@ with header_container:
 
 all_fixtures = get_upcoming_matches()
 
-# --- SIDEBAR ---
+# --- SIDEBAR RÉORGANISÉE ---
 with st.sidebar:
-    st.header("🎟️ TICKET")
+    st.markdown("<h3 style='color:#00FF99; font-family:\"Kanit\", sans-serif; margin-bottom: 5px;'>🎟️ Tickets :</h3>", unsafe_allow_html=True)
     if st.button("🎰 GÉNÉRER PRONOS", type="primary"):
         st.session_state.mode = "std"
         with st.spinner("Création ticket dynamique..."): st.session_state.ticket_data = gen_match_ticket(all_fixtures)
@@ -486,17 +534,22 @@ with st.sidebar:
         st.session_state.mode = "scorer"
         with st.spinner("Recherche des Renards..."): st.session_state.scorer_ticket = gen_scorer_ticket(all_fixtures)
 
-    st.markdown("---")
+    st.markdown("<br><h3 style='color:#00FF99; font-family:\"Kanit\", sans-serif; margin-bottom: 5px;'>📂 Rubriques :</h3>", unsafe_allow_html=True)
     if st.button("📝 MA SÉLECTION"):
         st.session_state.mode = "my_selection"
         st.session_state.selection_validated = False
         st.session_state.auto_analyzed = False
         st.session_state.show_plan_b = False
         
-    if st.button("📊 GRAPHIQUES DE COMPARAISON"): st.session_state.mode = "graphs"
+    if st.button("📊 GRAPHIQUES DE COMPARAISON"): 
+        st.session_state.mode = "graphs"
+        
+    if st.button("🔎 SCANNEZ TOUS LES PRONOS"):
+        st.session_state.mode = "scan_all"
 
+    # AFFICHAGE DES TICKETS DANS LA SIDEBAR
     if st.session_state.mode == "std" and st.session_state.ticket_data:
-        st.success("✅ TICKET MATCHS (Unique)")
+        st.success("✅ TICKET MATCHS")
         for i, item in enumerate(st.session_state.ticket_data):
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             icon = "⚖️" if "Nul" in item['v'] else ("🔒" if "-2.5" in item['v'] else ("🥅" if "OUI" in item['v'] else ("⚽" if "+2.5" in item['v'] else "🏆")))
@@ -509,8 +562,32 @@ with st.sidebar:
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             if st.button(f"🎯 {p['name']} ({item['team']})", key=f"tck_scr_{i}", use_container_width=True): show_analysis_dialog("scorer", item['m'], f"Buteur : {p['name']}", item['h'], item['a'], p)
 
+# =====================================================================
+# --- AFFICHAGE : SCANNEZ TOUS LES PRONOS (NOUVEAU) ---
+# =====================================================================
+if st.session_state.mode == "scan_all":
+    st.markdown("<h2 class='my-sel-title'>🔎 SCAN DE TOUS LES PRONOS</h2>", unsafe_allow_html=True)
+    if all_fixtures:
+        dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
+        sel_date_scan = st.selectbox("📅 Choisissez la date", dates, key="scan_date")
+        matches_scan = [f for f in all_fixtures if f['fixture']['date'][:10] == sel_date_scan]
+        
+        if not matches_scan:
+            st.info("Aucun match prévu pour cette date.")
+        else:
+            st.write("Cliquez sur un match pour comprendre l'algorithme de l'IA :")
+            for f in matches_scan:
+                h_name = f['teams']['home']['name']
+                a_name = f['teams']['away']['name']
+                if st.button(f"🔍 {f['fixture']['date'][11:16]} | {h_name} vs {a_name}", use_container_width=True, key=f"btn_scan_{f['fixture']['id']}"):
+                    show_scan_dialog(f)
+    else:
+        st.info("Aucun match disponible.")
+
+# =====================================================================
 # --- AFFICHAGE : GRAPHIQUES DE COMPARAISON ---
-if st.session_state.mode == "graphs":
+# =====================================================================
+elif st.session_state.mode == "graphs":
     st.markdown("### 📊 GRAPHIQUES DE COMPARAISON")
     if all_fixtures:
         dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
@@ -624,7 +701,9 @@ if st.session_state.mode == "graphs":
             else: st.warning("Données insuffisantes.")
     else: st.info("Aucun match disponible.")
 
+# =====================================================================
 # --- AFFICHAGE PRINCIPAL : MA SÉLECTION ---
+# =====================================================================
 elif st.session_state.mode == "my_selection":
     st.markdown("<h2 class='my-sel-title'>📝 MA SÉLECTION PERSONNELLE</h2>", unsafe_allow_html=True)
     if all_fixtures:
@@ -717,6 +796,7 @@ elif st.session_state.mode == "my_selection":
                         
                         border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
                         
+                        # BOUTON EQUIPE CLIQUABLE QUI OUVRE LE DIALOG
                         if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True):
                             show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
 
@@ -743,8 +823,10 @@ elif st.session_state.mode == "my_selection":
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
+# =====================================================================
 # --- AFFICHAGE PRINCIPAL : STANDARD / QUANTUM ---
-elif st.session_state.mode != "my_selection" and st.session_state.mode != "graphs":
+# =====================================================================
+elif st.session_state.mode != "my_selection" and st.session_state.mode != "graphs" and st.session_state.mode != "scan_all":
     if all_fixtures:
         all_fixtures.sort(key=lambda x: x['fixture']['date'])
         competitions = sorted(list(set([f['league']['name'] for f in all_fixtures])))
@@ -757,10 +839,17 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
         filt_fix = all_fixtures
         if sel_league != "Toutes": filt_fix = [f for f in filt_fix if f['league']['name'] == sel_league]
         if sel_date != "Toutes": filt_fix = [f for f in filt_fix if f['fixture']['date'][:10] == sel_date]
+        
         if filt_fix:
             match_map = {"Tous les matchs": None} 
             match_map.update({f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in filt_fix})
-            sel_match = st.selectbox("Rencontre", list(match_map.keys()))
+            match_keys = list(match_map.keys())
+            
+            # GESTION REDIRECTION AUTO
+            if 'main_match_select' not in st.session_state or st.session_state.main_match_select not in match_keys:
+                st.session_state.main_match_select = match_keys[0] if match_keys else None
+                
+            sel_match = st.selectbox("Rencontre", match_keys, key="main_match_select")
             match_data = match_map[sel_match]
         else: match_data = "EMPTY"
     else: match_data = "EMPTY"
@@ -768,12 +857,19 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
     if match_data is None and sel_match == "Tous les matchs":
         st.markdown("---")
         st.markdown("### 📋 Liste des rencontres filtrées")
-        for f in filt_fix: st.markdown(f"<div style='background-color:#1a1c24; padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid #333; display:flex; justify-content:space-between; align-items:center;'><span style='color:#00FF99; font-weight:bold;'>{f['fixture']['date'][11:16]}</span><span style='font-weight:bold; font-size:0.9rem;'>{f['teams']['home']['name']} vs {f['teams']['away']['name']}</span></div>", unsafe_allow_html=True)
+        for f in filt_fix: 
+            match_str = f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}"
+            # BOUTON LISTE CLIQUABLE POUR REDIRECTION
+            st.button(f"⏱️ {f['fixture']['date'][11:16]} | {f['teams']['home']['name']} vs {f['teams']['away']['name']} ➜ Analyser", use_container_width=True, on_click=set_match_and_analyze, args=(match_str,), key=f"go_{f['fixture']['id']}")
 
     elif match_data != "EMPTY":
         st.markdown("---")
         b1, b2 = st.columns(2)
-        if b1.button("🚀 ANALYSER", type="primary", use_container_width=True):
+        
+        # LOGIQUE D'ANALYSE AUTO DEPUIS LA LISTE
+        analyze_clicked = b1.button("🚀 ANALYSER", type="primary", use_container_width=True)
+        if analyze_clicked or st.session_state.get('auto_trigger_analyze', False):
+            st.session_state.auto_trigger_analyze = False # On reset
             st.session_state.quantum_mode = False
             with st.spinner("Analyse Cohérente..."):
                 hid, aid = match_data['teams']['home']['id'], match_data['teams']['away']['id']
@@ -803,8 +899,7 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
                 st.markdown(f"<div class='match-header'><div class='team-box'><img src='{m['teams']['home']['logo']}' class='team-logo'><div class='team-name'>{m['teams']['home']['name']}</div></div><div class='vs-box'>VS</div><div class='team-box'><img src='{m['teams']['away']['logo']}' class='team-logo'><div class='team-name'>{m['teams']['away']['name']}</div></div></div>", unsafe_allow_html=True)
                 
                 h = process_stats_by_filter(d['raw_h'], 10); a = process_stats_by_filter(d['raw_a'], 10)
-                if st.button("🔍 Voir les 5 derniers résultats et le classement", use_container_width=True): 
-                    show_history_and_rank_dialog(h['name'], h['id'], d['raw_h']['history'], h['form'], a['name'], a['id'], d['raw_a']['history'], a['form'], m['league']['id'])
+                if st.button("🔍 Voir les 5 derniers résultats et le classement", use_container_width=True): show_history_and_rank_dialog(h['name'], d['raw_h']['id'], d['raw_h']['history'], h['form'], a['name'], d['raw_a']['id'], d['raw_a']['history'], a['form'], m['league']['id'])
                 
                 st.markdown("### ⚙️ Options d'Analyse")
                 filter_opt = st.radio("Baser les statistiques sur :", ["5 derniers", "10 derniers", "Saison (20)"], horizontal=True, key="main_filter")
