@@ -11,13 +11,13 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 
-# --- 1. CONFIGURATION V41 (DESIGN FINAL - HEADER & FONT SPORT) ---
+# --- 1. CONFIGURATION V42 (HEADER MAGNIFIQUE & DESIGN ÉPURÉ) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 # Import de la police Google Font 'Kanit' pour un look sport et épais
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,900;1,900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,900;1,300&display=swap');
 
     /* FOND GÉNÉRAL & TEXTE */
     .stApp, [data-testid="stAppViewContainer"] { background-color: #0E1117 !important; color: #FFFFFF !important; }
@@ -29,31 +29,27 @@ st.markdown("""
         text-align: center;
     }
 
-    /* BRANDING TITRE PIF DU FOOT - NOUVELLE POLICE */
-    .pif-title {
-        font-family: 'Kanit', sans-serif; /* Police sport épaisse */
-        text-align: center;
-        font-weight: 900;
-        font-size: 3.5rem; /* Plus gros pour l'impact */
-        text-transform: uppercase;
-        background: linear-gradient(90deg, #00FF99, #00D4FF);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 5px;
-        margin-top: 5px;
-        line-height: 1;
-        letter-spacing: 1.5px;
-        text-shadow: 0px 0px 10px rgba(0, 255, 153, 0.3); /* Légère lueur */
+    /* LOGO AVEC CONTOUR */
+    .logo-wrapper img {
+        border: 3px solid #FFFFFF;
+        border-radius: 15px; /* Coins arrondis */
+        padding: 5px; /* Espace entre l'image et la bordure */
+        background: #1a1c24; /* Léger fond pour faire ressortir le cadre */
+        box-shadow: 0 0 25px rgba(0, 255, 153, 0.2); /* Halo néon subtil */
     }
+
+    /* BASELINE STYLISÉE (Le nez ne ment jamais) */
     .pif-subtitle { 
         text-align: center; 
         font-family: 'Kanit', sans-serif;
-        font-weight: 400;
+        font-weight: 300; /* Plus fin pour l'élégance */
         font-style: italic; 
-        color: #aaaaaa !important; 
-        font-size: 1.1rem;
-        margin-top: -5px; 
-        margin-bottom: 30px; 
+        color: #FFFFFF !important; /* Blanc pur */
+        font-size: 1.6rem; /* Beaucoup plus grand */
+        margin-top: 20px; /* Espace sous le logo */
+        margin-bottom: 40px; 
+        letter-spacing: 1.2px;
+        text-shadow: 0 0 12px rgba(0, 255, 153, 0.6); /* Lueur néon */
     }
 
     /* MA SÉLECTION TITRE */
@@ -62,18 +58,18 @@ st.markdown("""
     /* FENÊTRES MODALES (DIALOGS) */
     div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
-    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-family: 'Kanit', sans-serif; }
+    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; }
     
     /* FIX BUG GRAPHIQUES */
     #vg-tooltip-element { background-color: #1a1c24 !important; color: white !important; border: 1px solid #00FF99 !important; font-family: sans-serif; border-radius: 8px; }
     #vg-tooltip-element td { color: white !important; }
     summary.vega-actions { display: none !important; }
 
-    /* UI ELEMENTS (Selectbox, Buttons, Sidebar) */
+    /* UI ELEMENTS */
     div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], li[role="option"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { background-color: #1a1c24 !important; color: white !important; border-color: #333 !important; }
     li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #00FF99 !important; color: black !important; }
     div[data-baseweb="select"] svg { fill: white !important; }
-    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; }
+    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
 
     button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; font-family: 'Kanit', sans-serif; }
     button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; font-family: 'Kanit', sans-serif; }
@@ -430,19 +426,18 @@ def show_final_verdict(h, a, p, q, enjeu_str):
 
 def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
 
-# --- HEADER PRINCIPAL (LOGO & TITRE) ---
-# Utilisation d'un conteneur pour centrer verticalement les éléments
+# --- HEADER PRINCIPAL (LOGO & BASELINE) ---
 header_container = st.container()
 with header_container:
-    # 1. Le Logo (Centré via des colonnes vides autour)
+    # 1. Le Logo avec son contour design
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
-        # IMPORTANT : Assurez-vous que votre fichier image s'appelle 'new_logo.png'
+        st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
         try: st.image("new_logo.png", use_column_width=True)
-        except: st.warning("Image 'new_logo.png' non trouvée. Veuillez la renommer et l'uploader.")
+        except: st.warning("Image 'new_logo.png' manquante.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. Le Titre et Sous-titre (Juste en dessous)
-    st.markdown("<h1 class='pif-title'>LE PIF DU FOOT</h1>", unsafe_allow_html=True)
+    # 2. Juste la phrase stylisée en dessous
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
 
 all_fixtures = get_upcoming_matches()
