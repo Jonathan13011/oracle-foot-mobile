@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V49 (LE PIF DU FOOT - ACCUEIL & ANTI-CRASH) ---
+# --- 1. CONFIGURATION V49 (PERSISTANCE BANKROLL & LIGUES) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -115,7 +115,8 @@ st.markdown("""
 
 API_KEY = "4d3c1dbf76600a937722ff6425d450ee"
 HEADERS = {'x-rapidapi-host': "v3.football.api-sports.io", 'x-rapidapi-key': API_KEY}
-LEAGUE_IDS = [2, 3, 39, 61, 140, 135, 78, 94, 45, 203, 307, 143, 323, 848]
+# AJOUT DES NOUVELLES LIGUES (62 = Ligue 2, 144 = Jupiler Pro League)
+LEAGUE_IDS = [2, 3, 39, 61, 62, 140, 135, 78, 94, 45, 144, 203, 307, 143, 323, 848]
 
 # STATES INITIAUX
 if 'analyzed_match_data' not in st.session_state: st.session_state.analyzed_match_data = None
@@ -135,26 +136,43 @@ if 'auto_trigger_analyze' not in st.session_state: st.session_state.auto_trigger
 if 'collapse_sidebar' not in st.session_state: st.session_state.collapse_sidebar = False
 if 'top_suggestions' not in st.session_state: st.session_state.top_suggestions = []
 
-# STATES BANKROLL
+# =====================================================================
+# GESTION DES FICHIERS DE SAUVEGARDE (PERSISTANCE DE LA BANKROLL)
+# =====================================================================
+BANKROLL_FILE = 'bankroll_data.pkl'
+
 if 'bankrolls' not in st.session_state:
-    st.session_state.bankrolls = {}
-    for i in range(1, 11):
-        df_init = pd.DataFrame({
-            "PARIS": [f"Paris {j}" for j in range(1, 21)],
-            "NOMS DES EQUIPES": ["" for _ in range(20)],
-            "COTES": [1.50 for _ in range(20)],
-            "PRONOS": ["" for _ in range(20)],
-            "MISES": [10.0 for _ in range(20)],
-            "RESULTATS": ["⏳ En attente" for _ in range(20)],
-            "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
-            "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
-            "Prono de l'IA": ["" for _ in range(20)]
-        })
-        st.session_state.bankrolls[f"Tableau {i}"] = df_init
-else:
-    for k in st.session_state.bankrolls:
-        if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
-            st.session_state.bankrolls[k]["Prono de l'IA"] = ""
+    if os.path.exists(BANKROLL_FILE):
+        try:
+            st.session_state.bankrolls = joblib.load(BANKROLL_FILE)
+        except:
+            pass
+            
+    if 'bankrolls' not in st.session_state or not st.session_state.bankrolls:
+        st.session_state.bankrolls = {}
+        for i in range(1, 11):
+            df_init = pd.DataFrame({
+                "PARIS": [f"Paris {j}" for j in range(1, 21)],
+                "NOMS DES EQUIPES": ["" for _ in range(20)],
+                "COTES": [1.50 for _ in range(20)],
+                "PRONOS": ["" for _ in range(20)],
+                "MISES": [10.0 for _ in range(20)],
+                "RESULTATS": ["⏳ En attente" for _ in range(20)],
+                "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
+                "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
+                "Prono de l'IA": ["" for _ in range(20)]
+            })
+            st.session_state.bankrolls[f"Tableau {i}"] = df_init
+        joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+
+# Rétrocompatibilité en cas d'anciennes sauvegardes
+needs_save = False
+for k in st.session_state.bankrolls:
+    if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
+        st.session_state.bankrolls[k]["Prono de l'IA"] = ""
+        needs_save = True
+if needs_save:
+    joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
@@ -380,7 +398,8 @@ def gen_scorer_ticket(fix):
 def generate_top_10_suggestions(fixtures):
     candidates = []
     bar = st.progress(0, text="L'IA scanne les opportunités les plus fiables des 3 prochains jours...")
-    fix_copy = fixtures.copy(); limit = min(len(fix_copy), 40) 
+    fix_copy = fixtures.copy()
+    limit = min(len(fix_copy), 40) 
     for i, f in enumerate(fix_copy[:limit]):
         hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
@@ -390,7 +409,8 @@ def generate_top_10_suggestions(fixtures):
                 p = get_coherent_probabilities(hs, as_)
                 p = np.array(p).flatten()
                 if len(p) >= 3:
-                    best_idx = np.argmax(p); conf = p[best_idx] * 100; q = get_quantum_analysis(hs, as_)
+                    best_idx = np.argmax(p); conf = p[best_idx] * 100
+                    q = get_quantum_analysis(hs, as_)
                     score = conf - (q['upset_risk'] * 0.2)
                     pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
                     candidates.append({'score': score, 'conf': conf, 'f': f, 'pick': pick, 'hs': hs, 'as_': as_, 'q': q})
@@ -567,7 +587,7 @@ with header_container:
 
 # --- SIDEBAR RÉORGANISÉE ---
 with st.sidebar:
-    # NOUVEAU BOUTON ACCUEIL
+    # BOUTON ACCUEIL
     if st.button("🏠 ACCUEIL", use_container_width=True):
         st.session_state.mode = "std"
         st.session_state.analyzed_match_data = None
@@ -603,6 +623,7 @@ with st.sidebar:
         st.session_state.mode = "suggestions"
         st.session_state.collapse_sidebar = True
         
+    # BOUTON BANKROLL DORE
     if st.button("💰 MA BANKROLL"):
         st.session_state.mode = "bankroll"
         st.session_state.collapse_sidebar = True
@@ -621,17 +642,45 @@ with st.sidebar:
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             if st.button(f"🎯 {p['name']} ({item['team']})", key=f"tck_scr_{i}", use_container_width=True): show_analysis_dialog("scorer", item['m'], f"Buteur : {p['name']}", item['h'], item['a'], p)
 
+
 # =====================================================================
 # --- AFFICHAGE : MA BANKROLL ---
 # =====================================================================
 if st.session_state.mode == "bankroll":
     st.markdown("<h2 class='my-sel-title' style='color:#FFD700 !important; border-color:#FFD700;'>💰 GESTION DE BANKROLL</h2>", unsafe_allow_html=True)
+    
     c1, c2, c3 = st.columns([1, 2, 1])
-    with c2: table_choice = st.selectbox("📂 Sélectionnez votre tableau de suivi :", [f"Tableau {i}" for i in range(1, 11)])
+    with c2:
+        table_keys = list(st.session_state.bankrolls.keys())
+        table_choice = st.selectbox("📂 Sélectionnez votre tableau de suivi :", table_keys)
+        
+        if st.button("➕ Ajouter un nouveau tableau vierge", use_container_width=True):
+            new_idx = len(table_keys) + 1
+            new_name = f"Tableau {new_idx}"
+            while new_name in table_keys:
+                new_idx += 1
+                new_name = f"Tableau {new_idx}"
+            
+            st.session_state.bankrolls[new_name] = pd.DataFrame({
+                "PARIS": [f"Paris {j}" for j in range(1, 21)],
+                "NOMS DES EQUIPES": ["" for _ in range(20)],
+                "COTES": [1.50 for _ in range(20)],
+                "PRONOS": ["" for _ in range(20)],
+                "MISES": [10.0 for _ in range(20)],
+                "RESULTATS": ["⏳ En attente" for _ in range(20)],
+                "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
+                "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
+                "Prono de l'IA": ["" for _ in range(20)]
+            })
+            joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+            st.rerun()
+            
     st.write("Remplissez vos pronostics ci-dessous :")
+    
     current_df = st.session_state.bankrolls[table_choice].copy()
     cols_order = ["PARIS", "NOMS DES EQUIPES", "COTES", "PRONOS", "MISES", "RESULTATS", "RESULTATS FINANCIERS", "Total Cumulé", "Prono de l'IA"]
     current_df = current_df[cols_order]
+    
     styled_df = current_df.style.apply(style_prono_col, axis=0)
     edited_df = st.data_editor(
         styled_df,
@@ -648,6 +697,7 @@ if st.session_state.mode == "bankroll":
         },
         use_container_width=True, hide_index=True, height=750, key=f"editor_main_{table_choice}"
     )
+    
     if not edited_df.equals(current_df):
         for idx in range(len(edited_df)):
             old_match = current_df.at[idx, "NOMS DES EQUIPES"]; new_match = edited_df.at[idx, "NOMS DES EQUIPES"]
@@ -670,6 +720,7 @@ if st.session_state.mode == "bankroll":
                         match_found = True; break
                 if not match_found: edited_df.at[idx, "Prono de l'IA"] = ""
             elif new_match == "" or pd.isnull(new_match): edited_df.at[idx, "Prono de l'IA"] = ""
+            
         total_cumule = 0.0
         for idx, row in edited_df.iterrows():
             mise = float(row["MISES"]) if pd.notnull(row["MISES"]) else 0.0
@@ -684,7 +735,10 @@ if st.session_state.mode == "bankroll":
                 total_cumule -= mise
             else: edited_df.at[idx, "RESULTATS FINANCIERS"] = f"⚪ 0.00 €"
             edited_df.at[idx, "Total Cumulé"] = f"🏦 {total_cumule:.2f} €"
-        st.session_state.bankrolls[table_choice] = edited_df; st.rerun()
+            
+        st.session_state.bankrolls[table_choice] = edited_df
+        joblib.dump(st.session_state.bankrolls, BANKROLL_FILE) # SAUVEGARDE LOCALE ICI
+        st.rerun()
 
 # =====================================================================
 # --- AFFICHAGE : SUGGESTIONS ---
@@ -696,16 +750,30 @@ elif st.session_state.mode == "suggestions":
         if not st.session_state.top_suggestions or st.session_state.get('suggestions_date') != today_str:
             st.session_state.top_suggestions = generate_top_10_suggestions(all_fixtures)
             st.session_state.suggestions_date = today_str
-        if not st.session_state.top_suggestions: st.info("Aucune suggestion avec un niveau de confiance suffisant pour le moment.")
+            
+        if not st.session_state.top_suggestions:
+            st.info("Aucune suggestion avec un niveau de confiance suffisant pour le moment.")
         else:
             for i, item in enumerate(st.session_state.top_suggestions):
-                f = item['f']; h_name, a_name = f['teams']['home']['name'], f['teams']['away']['name']
+                f = item['f']
+                h_name, a_name = f['teams']['home']['name'], f['teams']['away']['name']
                 pick, conf = item['pick'], item['conf']
-                html_card = f"""<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid #00FF99; margin-bottom:10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'><div style='display:flex; justify-content:space-between; align-items:center;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{h_name} vs {a_name} <span style='font-size:0.8rem;color:#888;font-weight:normal;'>({f['fixture']['date'][5:16]})</span></span><span style='background:#0b1016; padding:4px 8px; border-radius:5px; font-weight:bold; color:#00FF99;'>{conf:.0f}%</span></div><p style='margin:5px 0 10px 0; font-size:1.1rem; font-weight:bold; color:#00FF99;'>🎯 {pick}</p></div>"""
+                
+                html_card = f"""
+                <div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid #00FF99; margin-bottom:10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'>
+                    <div style='display:flex; justify-content:space-between; align-items:center;'>
+                        <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:"Kanit", sans-serif;'>{h_name} vs {a_name} <span style='font-size:0.8rem;color:#888;font-weight:normal;'>({f['fixture']['date'][5:16]})</span></span>
+                        <span style='background:#0b1016; padding:4px 8px; border-radius:5px; font-weight:bold; color:#00FF99;'>{conf:.0f}%</span>
+                    </div>
+                    <p style='margin:5px 0 10px 0; font-size:1.1rem; font-weight:bold; color:#00FF99;'>🎯 {pick}</p>
+                </div>
+                """
                 st.markdown(html_card, unsafe_allow_html=True)
-                if st.button(f"🔍 Analyse Détaillée du match #{i+1}", key=f"sugg_btn_{i}", use_container_width=True): show_scan_dialog(f)
+                if st.button(f"🔍 Analyse Détaillée du match #{i+1}", key=f"sugg_btn_{i}", use_container_width=True):
+                    show_scan_dialog(f)
                 st.markdown("<br>", unsafe_allow_html=True)
-    else: st.info("Aucun match disponible.")
+    else:
+        st.info("Aucun match disponible.")
 
 # =====================================================================
 # --- AFFICHAGE : SCANNEZ TOUS LES PRONOS ---
@@ -716,13 +784,18 @@ elif st.session_state.mode == "scan_all":
         dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
         sel_date_scan = st.selectbox("📅 Choisissez la date", dates, key="scan_date")
         matches_scan = [f for f in all_fixtures if f['fixture']['date'][:10] == sel_date_scan]
-        if not matches_scan: st.info("Aucun match prévu pour cette date.")
+        
+        if not matches_scan:
+            st.info("Aucun match prévu pour cette date.")
         else:
             st.write("Cliquez sur un match pour comprendre l'algorithme de l'IA :")
             for f in matches_scan:
-                h_name = f['teams']['home']['name']; a_name = f['teams']['away']['name']
-                if st.button(f"🔍 {f['fixture']['date'][11:16]} | {h_name} vs {a_name}", use_container_width=True, key=f"btn_scan_{f['fixture']['id']}"): show_scan_dialog(f)
-    else: st.info("Aucun match disponible.")
+                h_name = f['teams']['home']['name']
+                a_name = f['teams']['away']['name']
+                if st.button(f"🔍 {f['fixture']['date'][11:16]} | {h_name} vs {a_name}", use_container_width=True, key=f"btn_scan_{f['fixture']['id']}"):
+                    show_scan_dialog(f)
+    else:
+        st.info("Aucun match disponible.")
 
 # =====================================================================
 # --- AFFICHAGE : GRAPHIQUES DE COMPARAISON ---
@@ -740,6 +813,7 @@ elif st.session_state.mode == "graphs":
             m_data = match_map_g[sel_match_g]
             hid, aid = m_data['teams']['home']['id'], m_data['teams']['away']['id']
             h_name, a_name = m_data['teams']['home']['name'], m_data['teams']['away']['name']
+            
             with st.spinner("Chargement des données..."): raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
             if raw_h and raw_a:
                 h = process_stats_by_filter(raw_h, 10); a = process_stats_by_filter(raw_a, 10)
@@ -817,7 +891,8 @@ elif st.session_state.mode == "graphs":
                         st.write("##### 🌧️ Impondérables")
                         random.seed(m_data['fixture']['id'])
                         meteo = random.choice(["Clair", "Pluie légère", "Nuageux", "Humide"]); fatigue = random.choice(["Reposés (7 jours)", "Calendrier chargé (3 jours)"])
-                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True); random.seed()
+                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True)
+                        random.seed()
                     elif "12. Analyse probabiliste" in sel_cat:
                         st.write("##### 🎲 Projection Modèle de Poisson")
                         p = get_coherent_probabilities(h, a)
@@ -827,7 +902,7 @@ elif st.session_state.mode == "graphs":
                         text = base_pie.mark_text(radius=150, fontSize=16, fontWeight='bold', fill='white').encode(text=alt.Text("Probabilité:Q", format=".0f"))
                         st.altair_chart(alt.layer(pie, text).properties(height=350, background='transparent').configure_view(strokeWidth=0), use_container_width=True, theme=None)
                 else: st.warning("Données historiques récentes insuffisantes pour les graphiques.")
-            else: st.warning("Impossible de récupérer les données pour ce match.")
+            else: st.error("L'IA n'a pas pu analyser ce match à cause d'un manque de données (équipe récemment promue, reléguée ou coupe).")
     else: st.info("Aucun match disponible.")
 
 # =====================================================================
@@ -1016,7 +1091,7 @@ elif st.session_state.mode != "my_selection" and st.session_state.mode != "graph
                         st.error("Données récentes insuffisantes pour analyser ce match.")
                         st.session_state.analyzed_match_data = None
                 else:
-                    st.error("Impossible de récupérer les statistiques des équipes.")
+                    st.error("Impossible de récupérer les statistiques des équipes (Pas de données en base).")
                     st.session_state.analyzed_match_data = None
 
         if b2.button("🧬 QUANTUM SNIPER", use_container_width=True):
