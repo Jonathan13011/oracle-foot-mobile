@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V51 (LE PIF DU FOOT - L'OUTIL PARFAIT) ---
+# --- 1. CONFIGURATION V51.1 (LE PIF DU FOOT - FIX BUG NESTED DIALOG) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -45,9 +45,7 @@ st.markdown("""
     #vg-tooltip-element td { color: white !important; }
     summary.vega-actions { display: none !important; }
 
-    /* =========================================================
-       FIX VISIBILITÉ DES SELECTBOX (LISTES DÉROULANTES)
-       ========================================================= */
+    /* VISIBILITÉ DES SELECTBOX (LISTES DÉROULANTES) */
     div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
         background-color: #1a1c24 !important; 
         color: white !important; 
@@ -56,7 +54,6 @@ st.markdown("""
     li[role="option"] { background-color: #1a1c24 !important; color: white !important; }
     div[data-baseweb="select"] svg { fill: white !important; }
     
-    /* Forcer le texte en NOIR quand la ligne est sélectionnée/survolée en VERT */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] { 
         background-color: #00FF99 !important; 
     }
@@ -98,6 +95,8 @@ st.markdown("""
     .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; font-family: 'Kanit', sans-serif; }
     .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; align-items: center; }
     .stat-label { color: #aaa; font-size: 0.8rem; } .stat-val { font-weight: bold; font-size: 0.9rem; }
+    
+    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
     
     .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; background-color: transparent !important; }
     .comp-table th, .comp-table td { border: 1px solid #444; padding: 10px; text-align: center; }
@@ -532,9 +531,8 @@ def style_bankroll_df(df):
         return c
     return df.style.apply(highlight, axis=None)
 
-# --- DIALOGS (MODALES) ---
-@st.dialog("🧠 DÉCONSTRUCTION DE L'ANALYSE IA")
-def show_scan_dialog(f_data):
+# --- FONCTION POUR AFFICHER L'ANALYSE DIRECTEMENT DANS LE WIZARD ---
+def display_scan_inline(f_data):
     hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
     h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
     with st.spinner("L'IA compile l'intégralité des données..."):
@@ -553,9 +551,8 @@ def show_scan_dialog(f_data):
         best_idx = np.argmax(p)
         ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
         
-        st.markdown(f"<h3 style='color:#00FF99;text-align:center;'>Verdict Final : {ai_pick}</h3>", unsafe_allow_html=True)
-        st.divider()
-        st.markdown("#### ⚙️ Déconstruction de l'Analyse :")
+        st.markdown(f"<h4 style='color:#00FF99;text-align:center;'>Verdict Final : {ai_pick}</h4>", unsafe_allow_html=True)
+        st.markdown("##### ⚙️ Déconstruction de l'Analyse :")
         html_content = f"""
         <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #00D4FF; margin-bottom:10px;'><b style='color:white;'>📊 Probabilités Mathématiques</b><br><span style='color:#ccc; font-size:0.9rem;'>Modèle de Poisson basé sur les moyennes de buts. Confiance estimée à <b>{p[best_idx]*100:.1f}%</b>. ({hs['avg_gf']:.1f} buts pour {h_name} vs {as_['avg_gf']:.1f} pour {a_name}).</span></div>
         <div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #FFD700; margin-bottom:10px;'><b style='color:white;'>🧬 Moteur Quantique (xG)</b><br><span style='color:#ccc; font-size:0.9rem;'>Rapport Expected Goals : <b>{q['xg_h']:.2f}</b> vs <b>{q['xg_a']:.2f}</b>. L'algorithme a isolé le score exact de <b>{q['sniper_score']}</b> parmi 10 000 matrices.</span></div>
@@ -565,6 +562,7 @@ def show_scan_dialog(f_data):
         st.markdown(html_content, unsafe_allow_html=True)
         if h2h: st.info(f"⚔️ **Historique H2H :** Sur les confrontations récentes, on observe une moyenne de **{h2h['avg_goals']:.1f} buts/match**.")
 
+# --- DIALOGS (MODALES) ---
 @st.dialog("➕ AJOUTER UN PRONOSTIC", width="large")
 def bankroll_wizard_dialog(table_choice, all_fixtures):
     st.markdown("<h3 style='color:#00FF99; text-align:center;'>ASSISTANT DE SAISIE IA</h3>", unsafe_allow_html=True)
@@ -582,10 +580,18 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
             
             # --- NOUVEAU BOUTON D'ANALYSE INTEGRE AU WIZARD ---
             st.markdown("<br>", unsafe_allow_html=True)
+            if "wiz_ana_open" not in st.session_state:
+                st.session_state.wiz_ana_open = False
+                
             if st.button(f"🧠 Analyser {home_team} vs {away_team} avant de parier", type="secondary", use_container_width=True):
+                st.session_state.wiz_ana_open = not st.session_state.wiz_ana_open
+                
+            if st.session_state.wiz_ana_open:
                 match_data = next((f for f in all_fixtures if f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" == sel_match), None)
                 if match_data:
-                    show_scan_dialog(match_data)
+                    st.markdown("<div style='border: 1px solid #00D4FF; border-radius: 10px; padding: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+                    display_scan_inline(match_data)
+                    st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("<hr style='border-color:#333; margin: 10px 0;'>", unsafe_allow_html=True)
             # ----------------------------------------------------
 
@@ -623,9 +629,14 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                         df = recalculate_bankroll(df)
                         st.session_state.bankrolls[table_choice] = df
                         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+                        st.session_state.wiz_ana_open = False # Reset for next time
                         st.rerun()
                     else:
                         st.error("Ce tableau est plein (20 paris max). Veuillez utiliser un autre tableau.")
+
+@st.dialog("🧠 DÉCONSTRUCTION DE L'ANALYSE IA")
+def show_scan_dialog(f_data):
+    display_scan_inline(f_data)
 
 @st.dialog("🔴 STATISTIQUES EN DIRECT")
 def show_live_stats_dialog(f, h_name, a_name, is_upset):
@@ -811,14 +822,15 @@ with st.sidebar:
         st.session_state.mode = "past_pronos"; st.session_state.collapse_sidebar = True
 
     if st.session_state.mode == "std" and st.session_state.ticket_data:
-        st.success("✅ TICKET MATCHS")
+        st.success("✅ TICKET MATCHS (Unique)")
         for i, item in enumerate(st.session_state.ticket_data):
             st.markdown(f"<div class='ticket-match-title'>{i+1}. {item['m']}</div>", unsafe_allow_html=True)
             icon = "⚖️" if "Nul" in item['v'] else ("🔒" if "-2.5" in item['v'] else ("🥅" if "OUI" in item['v'] else ("⚽" if "+2.5" in item['v'] else "🏆")))
             if st.button(f"{icon} {item['t']} : {item['v']}", key=f"tck_btn_{i}", use_container_width=True): show_analysis_dialog("match", item['m'], item['v'], item['h'], item['a'])
 
+
 # =====================================================================
-# --- AFFICHAGE : MA BANKROLL (WIZARD + UPDATE AUTO) ---
+# --- AFFICHAGE : MA BANKROLL (WIZARD ET AFFICHAGE CENTRAL) ---
 # =====================================================================
 if st.session_state.mode == "bankroll":
     st.markdown("<h2 class='my-sel-title' style='color:#FFD700 !important; border-color:#FFD700;'>💰 GESTION DE BANKROLL</h2>", unsafe_allow_html=True)
@@ -1176,7 +1188,8 @@ elif st.session_state.mode == "my_selection":
                             plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                             border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
                             
-                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True): show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
+                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True):
+                                show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
 
                             html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-top:-10px; margin-bottom:25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'><div style='text-align:center; margin-bottom: 10px;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name}</span> <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{a_name}</span></div>"
                             if not st.session_state.show_plan_b: html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:\"Kanit\", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p></div>"
