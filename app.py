@@ -12,111 +12,111 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V51.1 (LE PIF DU FOOT - FIX BUG NESTED DIALOG) ---
+# --- 1. CONFIGURATION V52 (LE PIF DU FOOT - BANKROLL ULTIME & DESIGN DYNAMIQUE) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,900;1,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,700;0,900;1,300&display=swap');
 
     /* FOND GÉNÉRAL & TEXTE */
-    .stApp, [data-testid="stAppViewContainer"] { background-color: #0E1117 !important; color: #FFFFFF !important; }
-    p, h1, h2, h3, div, span, label, h4, h5, h6, li, td, th { color: #FFFFFF !important; }
+    .stApp, [data-testid="stAppViewContainer"] { background-color: #0B0E14 !important; color: #FFFFFF !important; font-family: 'Kanit', sans-serif; }
+    p, h1, h2, h3, div, span, label, h4, h5, h6, li, td, th { color: #FFFFFF !important; font-family: 'Kanit', sans-serif; }
 
     /* HEADER CONTAINER CENTRÉ */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { align-items: center; text-align: center; }
 
-    /* LOGO AVEC CONTOUR */
-    .logo-wrapper img { border: 3px solid #FFFFFF; border-radius: 15px; padding: 5px; background: #1a1c24; box-shadow: 0 0 25px rgba(0, 255, 153, 0.2); }
+    /* LOGO AVEC CONTOUR GLOW */
+    .logo-wrapper img { 
+        border: 2px solid rgba(255, 255, 255, 0.8); 
+        border-radius: 20px; 
+        padding: 5px; 
+        background: rgba(26, 28, 36, 0.6); 
+        backdrop-filter: blur(10px);
+        box-shadow: 0 0 30px rgba(0, 255, 153, 0.3); 
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .logo-wrapper img:hover { transform: scale(1.02); box-shadow: 0 0 40px rgba(0, 255, 153, 0.5); }
 
     /* BASELINE STYLISÉE */
-    .pif-subtitle { text-align: center; font-family: 'Kanit', sans-serif; font-weight: 300; font-style: italic; color: #FFFFFF !important; font-size: 1.6rem; margin-top: 20px; margin-bottom: 40px; letter-spacing: 1.2px; text-shadow: 0 0 12px rgba(0, 255, 153, 0.6); }
+    .pif-subtitle { text-align: center; font-weight: 300; font-style: italic; color: #E0E0E0 !important; font-size: 1.6rem; margin-top: 20px; margin-bottom: 40px; letter-spacing: 1.5px; text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); }
 
     /* TITRES DE SECTIONS */
-    .my-sel-title { text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; color: #FFD700 !important; font-size: 2rem; border-bottom: 2px solid #FFD700; padding-bottom: 10px; margin-bottom: 20px;}
+    .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 2.2rem; border-bottom: 2px solid rgba(255, 215, 0, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
 
-    /* FENÊTRES MODALES */
-    div[role="dialog"] { background-color: #0b1016 !important; border: 2px solid #00FF99 !important; border-radius: 15px !important; box-shadow: 0 0 30px rgba(0, 255, 153, 0.2); }
+    /* FENÊTRES MODALES (GLASSMORPHISM) */
+    div[role="dialog"] { background-color: rgba(11, 16, 22, 0.95) !important; backdrop-filter: blur(15px); border: 1px solid #00FF99 !important; border-radius: 20px !important; box-shadow: 0 10px 40px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
-    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-family: 'Kanit', sans-serif; font-weight: 900; }
+    div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-weight: 900; }
     
     /* FIX BUG GRAPHIQUES */
-    #vg-tooltip-element { background-color: #1a1c24 !important; color: white !important; border: 1px solid #00FF99 !important; font-family: sans-serif; border-radius: 8px; }
+    #vg-tooltip-element { background-color: rgba(26, 28, 36, 0.9) !important; backdrop-filter: blur(5px); color: white !important; border: 1px solid #00FF99 !important; border-radius: 8px; }
     #vg-tooltip-element td { color: white !important; }
     summary.vega-actions { display: none !important; }
 
     /* VISIBILITÉ DES SELECTBOX (LISTES DÉROULANTES) */
     div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
-        background-color: #1a1c24 !important; 
-        color: white !important; 
-        border-color: #333 !important; 
+        background-color: #151821 !important; color: white !important; border-color: #333 !important; 
     }
-    li[role="option"] { background-color: #1a1c24 !important; color: white !important; }
+    li[role="option"] { background-color: #151821 !important; color: white !important; transition: background-color 0.2s ease; }
     div[data-baseweb="select"] svg { fill: white !important; }
     
-    li[role="option"]:hover, li[role="option"][aria-selected="true"] { 
-        background-color: #00FF99 !important; 
-    }
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #00FF99 !important; }
     li[role="option"]:hover span, li[role="option"][aria-selected="true"] span,
-    li[role="option"]:hover div, li[role="option"][aria-selected="true"] div { 
-        color: #000000 !important; 
-        font-weight: 900 !important; 
-    }
+    li[role="option"]:hover div, li[role="option"][aria-selected="true"] div { color: #000000 !important; font-weight: 900 !important; }
 
-    /* SIDEBAR TEXTS */
-    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2, [data-testid="stSidebarUserContent"] h3 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
-
-    /* BOUTONS STANDARDS */
-    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0E1117 !important; font-weight: 900 !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.4) !important; font-family: 'Kanit', sans-serif; }
-    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; font-family: 'Kanit', sans-serif; }
-    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4) !important; font-family: 'Kanit', sans-serif; }
+    /* BOUTONS STANDARDS ANIMES */
+    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0B0E14 !important; font-weight: 900 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.3) !important; transition: all 0.3s ease !important; }
+    button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 153, 0.5) !important; }
+    
+    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3) !important; transition: all 0.3s ease !important; }
+    button[kind="secondary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5) !important; }
+    
+    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3) !important; transition: all 0.3s ease !important;}
+    .btn-plan-b button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 75, 75, 0.5) !important; }
     
     /* BOUTON DORE SPÉCIFIQUE (MA BANKROLL) */
-    button:has(p:contains("MA BANKROLL")) { background: linear-gradient(90deg, #FFD700, #DAA520) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; }
-    button:has(p:contains("MA BANKROLL")) p { color: #0E1117 !important; font-weight: 900 !important; font-family: 'Kanit', sans-serif !important; }
+    button:has(p:contains("MA BANKROLL")) { background: linear-gradient(90deg, #FFD700, #DAA520) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; transition: all 0.3s ease !important; }
+    button:has(p:contains("MA BANKROLL")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important; }
+    button:has(p:contains("MA BANKROLL")) p { color: #0B0E14 !important; font-weight: 900 !important; }
     
     /* BOUTON LIVE (ROUGE) */
     button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; }
-    button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; font-family: 'Kanit', sans-serif !important; }
+    button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
 
-    /* MATCH HEADER & TABLES */
-    .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: #1a1c24; padding: 10px 5px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; }
+    /* MATCH HEADER & CARTES */
+    .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: rgba(26, 28, 36, 0.8); padding: 12px 8px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; backdrop-filter: blur(5px); }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
-    .team-logo { width: 45px; height: 45px; object-fit: contain; margin-bottom: 3px; }
-    .team-name { font-size: 0.75rem; font-weight: bold; line-height: 1.1; color: white !important; }
-    .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.2rem; font-family: 'Kanit', sans-serif; }
+    .team-logo { width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5)); }
+    .team-name { font-size: 0.85rem; font-weight: bold; line-height: 1.2; color: white !important; }
+    .vs-box { width: 20%; text-align: center; color: #00FF99 !important; font-weight: 900; font-size: 1.3rem; }
     
-    div[data-testid="stExpander"] { background-color: #1a1c24 !important; border-color: #333 !important; border-radius: 8px !important; margin-bottom: 10px; }
-    div[data-testid="stExpander"] summary p { font-weight: bold !important; font-family: 'Kanit', sans-serif; }
+    div[data-testid="stExpander"] { background-color: #151821 !important; border-color: #333 !important; border-radius: 12px !important; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    div[data-testid="stExpander"] summary p { font-weight: bold !important; font-size: 1.05rem; }
 
-    .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 5px; margin-bottom: 20px; width: 100%; }
-    .prob-box { background-color: #1a1c24; border: 1px solid #363b4e; border-radius: 8px; width: 32%; padding: 10px 2px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
-    .prob-label { font-size: 0.6rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; }
-    .prob-value { font-size: 1.2rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; font-family: 'Kanit', sans-serif; }
-    .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; align-items: center; }
-    .stat-label { color: #aaa; font-size: 0.8rem; } .stat-val { font-weight: bold; font-size: 0.9rem; }
+    .probs-container { display: flex; flex-direction: row; justify-content: space-between; gap: 8px; margin-bottom: 20px; width: 100%; }
+    .prob-box { background: linear-gradient(145deg, #1a1c24, #11141c); border: 1px solid #363b4e; border-radius: 12px; width: 32%; padding: 15px 5px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .prob-label { font-size: 0.7rem; color: #AAAAAA !important; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .prob-value { font-size: 1.4rem; font-weight: 900; color: #FFFFFF !important; line-height: 1.2; margin-top: 5px; }
     
-    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 10px; border-bottom: 1px solid #333; }
+    .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 1.1rem; }
     
-    .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; background-color: transparent !important; }
-    .comp-table th, .comp-table td { border: 1px solid #444; padding: 10px; text-align: center; }
-    .comp-table th { background-color: #262935; color: #00FF99 !important; font-weight: bold; font-family: 'Kanit', sans-serif; }
-    .comp-table tr:nth-child(even) { background-color: #1a1c24; }
+    /* STYLING DES TABLES DE BANKROLL ET STATS */
+    .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95rem; background-color: transparent !important; }
+    .comp-table th, .comp-table td { border: 1px solid #444; padding: 12px; text-align: center; }
+    .comp-table th { background-color: #1a1c24; color: #00FF99 !important; font-weight: 900; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+    .comp-table tr:nth-child(even) { background-color: rgba(26, 28, 36, 0.5); }
     
-    [data-testid="stDataFrame"] > div { background-color: #11141c !important; border: 1px solid #333 !important; border-radius: 8px; }
+    [data-testid="stDataFrame"] > div { background-color: #0e1117 !important; border: 1px solid #333 !important; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     
     /* ANIMATION LIVE UPSET */
-    @keyframes pulse-border {
-        0% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); }
-        50% { border-color: #FF4400; box-shadow: 0 0 20px rgba(255, 68, 0, 0.8); }
-        100% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); }
-    }
-    .live-upset-card { background: #11141c; padding: 15px; border-radius: 12px; margin-bottom: 15px; animation: pulse-border 1.5s infinite; border: 2px solid #FF4400; }
-    .live-normal-card { background: #1a1c24; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
-    .blink-text { color: #FF4400; font-weight: bold; animation: text-pulse 1.5s infinite; }
+    @keyframes pulse-border { 0% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); } 50% { border-color: #FF4400; box-shadow: 0 0 20px rgba(255, 68, 0, 0.8); } 100% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); } }
+    .live-upset-card { background: linear-gradient(145deg, #1a0a0a, #11141c); padding: 15px; border-radius: 12px; margin-bottom: 15px; animation: pulse-border 1.5s infinite; border: 2px solid #FF4400; }
+    .live-normal-card { background: #151821; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+    .blink-text { color: #FF4400; font-weight: bold; animation: text-pulse 1.5s infinite; font-size: 1.1em; }
     @keyframes text-pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
-    @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; } }
+    @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.3rem !important; padding-right: 0.3rem !important; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -142,34 +142,44 @@ if 'auto_trigger_analyze' not in st.session_state: st.session_state.auto_trigger
 if 'collapse_sidebar' not in st.session_state: st.session_state.collapse_sidebar = False
 if 'top_suggestions' not in st.session_state: st.session_state.top_suggestions = []
 
-# STATES BANKROLL (Persistance Totale)
+def get_empty_bankroll():
+    return pd.DataFrame({
+        "PARIS": [f"Paris {j}" for j in range(1, 21)],
+        "NOMS DES EQUIPES": ["" for _ in range(20)],
+        "COTES": [1.50 for _ in range(20)],
+        "PRONOS": ["" for _ in range(20)],
+        "MISES": [10.0 for _ in range(20)],
+        "RESULTATS": ["⏳ En attente" for _ in range(20)],
+        "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
+        "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
+        "Prono de l'IA": ["" for _ in range(20)]
+    })
+
+# STATES BANKROLL (Persistance Totale & Versioning pour forcer le rafraîchissement)
 BANKROLL_FILE = 'bankroll_data.pkl'
+if 'bankroll_versions' not in st.session_state:
+    st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
+
 if 'bankrolls' not in st.session_state:
     if os.path.exists(BANKROLL_FILE):
-        try: st.session_state.bankrolls = joblib.load(BANKROLL_FILE)
+        try: 
+            st.session_state.bankrolls = joblib.load(BANKROLL_FILE)
+            for k in st.session_state.bankrolls.keys():
+                if k not in st.session_state.bankroll_versions:
+                    st.session_state.bankroll_versions[k] = 0
         except: pass
     if 'bankrolls' not in st.session_state or not st.session_state.bankrolls:
         st.session_state.bankrolls = {}
         for i in range(1, 11):
-            df_init = pd.DataFrame({
-                "PARIS": [f"Paris {j}" for j in range(1, 21)],
-                "NOMS DES EQUIPES": ["" for _ in range(20)],
-                "COTES": [1.50 for _ in range(20)],
-                "PRONOS": ["" for _ in range(20)],
-                "MISES": [10.0 for _ in range(20)],
-                "RESULTATS": ["⏳ En attente" for _ in range(20)],
-                "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)],
-                "Total Cumulé": ["🏦 0.00 €" for _ in range(20)],
-                "Prono de l'IA": ["" for _ in range(20)]
-            })
-            st.session_state.bankrolls[f"Tableau {i}"] = df_init
+            st.session_state.bankrolls[f"Tableau {i}"] = get_empty_bankroll()
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
-# Sécurité Rétrocompatibilité
 needs_save = False
 for k in st.session_state.bankrolls:
     if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
         st.session_state.bankrolls[k]["Prono de l'IA"] = ""; needs_save = True
+    # Assurer que les 'None' sont des strings vides pour éviter les bugs d'affichage
+    st.session_state.bankrolls[k]["NOMS DES EQUIPES"] = st.session_state.bankrolls[k]["NOMS DES EQUIPES"].fillna("")
 if needs_save: joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
@@ -531,7 +541,7 @@ def style_bankroll_df(df):
         return c
     return df.style.apply(highlight, axis=None)
 
-# --- FONCTION POUR AFFICHER L'ANALYSE DIRECTEMENT DANS LE WIZARD ---
+# --- FONCTION POUR AFFICHER L'ANALYSE INLINE ---
 def display_scan_inline(f_data):
     hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
     h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
@@ -578,14 +588,11 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
             home_team = sel_match.split(" vs ")[0]
             away_team = sel_match.split(" vs ")[1]
             
-            # --- NOUVEAU BOUTON D'ANALYSE INTEGRE AU WIZARD ---
+            # --- BOUTON D'ANALYSE INTEGRE ---
             st.markdown("<br>", unsafe_allow_html=True)
-            if "wiz_ana_open" not in st.session_state:
-                st.session_state.wiz_ana_open = False
-                
+            if "wiz_ana_open" not in st.session_state: st.session_state.wiz_ana_open = False
             if st.button(f"🧠 Analyser {home_team} vs {away_team} avant de parier", type="secondary", use_container_width=True):
                 st.session_state.wiz_ana_open = not st.session_state.wiz_ana_open
-                
             if st.session_state.wiz_ana_open:
                 match_data = next((f for f in all_fixtures if f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" == sel_match), None)
                 if match_data:
@@ -593,7 +600,6 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                     display_scan_inline(match_data)
                     st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("<hr style='border-color:#333; margin: 10px 0;'>", unsafe_allow_html=True)
-            # ----------------------------------------------------
 
             prono_opts = ["-- Sélectionnez --", f"Victoire {home_team}", "Match Nul", f"Victoire {away_team}", "Moins de 2.5 buts", "Plus de 2.5 buts", "Les 2 marquent: OUI", "Les 2 marquent: NON"]
             sel_prono = st.selectbox("🔮 3. Quel est votre pronostic ?", prono_opts)
@@ -605,9 +611,9 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                 
                 if st.button("✅ ENREGISTRER DANS LE TABLEAU", type="primary", use_container_width=True):
                     df = st.session_state.bankrolls[table_choice]
-                    empty_idx = df[df['NOMS DES EQUIPES'] == ""].index
-                    if len(empty_idx) > 0:
-                        idx = empty_idx[0]
+                    empty_mask = df['NOMS DES EQUIPES'] == ""
+                    if empty_mask.any():
+                        idx = empty_mask.idxmax()
                         df.at[idx, "NOMS DES EQUIPES"] = sel_match
                         df.at[idx, "PRONOS"] = sel_prono
                         df.at[idx, "MISES"] = mise
@@ -629,7 +635,8 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                         df = recalculate_bankroll(df)
                         st.session_state.bankrolls[table_choice] = df
                         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
-                        st.session_state.wiz_ana_open = False # Reset for next time
+                        st.session_state.wiz_ana_open = False
+                        st.session_state.bankroll_versions[table_choice] += 1 # FORCE LA MISE A JOUR DU WIDGET
                         st.rerun()
                     else:
                         st.error("Ce tableau est plein (20 paris max). Veuillez utiliser un autre tableau.")
@@ -816,7 +823,8 @@ with st.sidebar:
         st.session_state.mode = "suggestions"; st.session_state.collapse_sidebar = True
         
     if st.button("💰 MA BANKROLL"):
-        st.session_state.mode = "bankroll"; st.session_state.collapse_sidebar = True
+        st.session_state.mode = "bankroll"
+        st.session_state.collapse_sidebar = True
 
     if st.button("⏪ PRONOS PASSÉS"):
         st.session_state.mode = "past_pronos"; st.session_state.collapse_sidebar = True
@@ -830,7 +838,7 @@ with st.sidebar:
 
 
 # =====================================================================
-# --- AFFICHAGE : MA BANKROLL (WIZARD ET AFFICHAGE CENTRAL) ---
+# --- AFFICHAGE : MA BANKROLL ---
 # =====================================================================
 if st.session_state.mode == "bankroll":
     st.markdown("<h2 class='my-sel-title' style='color:#FFD700 !important; border-color:#FFD700;'>💰 GESTION DE BANKROLL</h2>", unsafe_allow_html=True)
@@ -840,116 +848,82 @@ if st.session_state.mode == "bankroll":
         table_keys = list(st.session_state.bankrolls.keys())
         table_choice = st.selectbox("📂 Sélectionnez votre tableau de suivi :", table_keys, label_visibility="collapsed")
         
-        c_add, c_new_tab = st.columns(2)
+        c_add, c_reset, c_new_tab = st.columns([1.5, 1, 1.5])
         with c_add:
             if st.button("➕ AJOUTER UN PRONOSTIC", type="primary", use_container_width=True):
                 bankroll_wizard_dialog(table_choice, all_fixtures)
+        with c_reset:
+            if st.button("🗑️ Vider ce tableau", use_container_width=True):
+                st.session_state.bankrolls[table_choice] = get_empty_bankroll()
+                joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+                st.session_state.bankroll_versions[table_choice] += 1
+                st.rerun()
         with c_new_tab:
             if st.button("➕ Nouveau tableau vierge", use_container_width=True):
                 new_idx = len(table_keys) + 1; new_name = f"Tableau {new_idx}"
                 while new_name in table_keys: new_idx += 1; new_name = f"Tableau {new_idx}"
-                st.session_state.bankrolls[new_name] = pd.DataFrame({"PARIS": [f"Paris {j}" for j in range(1, 21)], "NOMS DES EQUIPES": ["" for _ in range(20)], "COTES": [1.50 for _ in range(20)], "PRONOS": ["" for _ in range(20)], "MISES": [10.0 for _ in range(20)], "RESULTATS": ["⏳ En attente" for _ in range(20)], "RESULTATS FINANCIERS": ["⚪ 0.00 €" for _ in range(20)], "Total Cumulé": ["🏦 0.00 €" for _ in range(20)], "Prono de l'IA": ["" for _ in range(20)]})
+                st.session_state.bankrolls[new_name] = get_empty_bankroll()
+                st.session_state.bankroll_versions[new_name] = 0
                 joblib.dump(st.session_state.bankrolls, BANKROLL_FILE); st.rerun()
 
-    with st.spinner("Synchronisation des résultats..."):
+    with st.spinner("Synchronisation des résultats en direct..."):
         all_matches_pool = get_status_all_matches()
         has_changed, updated_df = auto_update_bankroll(st.session_state.bankrolls[table_choice], all_matches_pool)
         if has_changed:
             updated_df = recalculate_bankroll(updated_df)
             st.session_state.bankrolls[table_choice] = updated_df
             joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+            st.session_state.bankroll_versions[table_choice] += 1
 
     current_df = st.session_state.bankrolls[table_choice].copy()
     cols_order = ["PARIS", "NOMS DES EQUIPES", "COTES", "PRONOS", "MISES", "RESULTATS", "RESULTATS FINANCIERS", "Total Cumulé", "Prono de l'IA"]
     current_df = current_df[cols_order]
     
-    st.write("### Vos Pronostics Enregistrés")
+    st.markdown("<br><h4 style='text-align:center; color:#E0E0E0;'>Vos Pronostics Enregistrés</h4>", unsafe_allow_html=True)
     styled_df = style_bankroll_df(current_df)
+    
+    editor_key = f"editor_main_{table_choice}_{st.session_state.bankroll_versions.get(table_choice, 0)}"
     
     edited_df = st.data_editor(
         styled_df,
         column_config={
             "PARIS": st.column_config.TextColumn("PARIS", disabled=True),
-            "NOMS DES EQUIPES": st.column_config.SelectboxColumn("NOMS DES EQUIPES", disabled=True, width="medium"),
-            "COTES": st.column_config.NumberColumn("COTES", disabled=True, format="%.2f", width="small"),
-            "PRONOS": st.column_config.SelectboxColumn("PRONOS", disabled=True, width="medium"),
-            "MISES": st.column_config.NumberColumn("MISES (€)", disabled=True, format="%.2f", width="small"),
+            "NOMS DES EQUIPES": st.column_config.SelectboxColumn("NOMS DES EQUIPES", options=match_options, width="medium"),
+            "COTES": st.column_config.NumberColumn("COTES", min_value=1.0, format="%.2f", width="small"),
+            "PRONOS": st.column_config.SelectboxColumn("PRONOS", options=prono_options, width="medium"),
+            "MISES": st.column_config.NumberColumn("MISES (€)", min_value=0.0, format="%.2f", width="small"),
             "RESULTATS": st.column_config.SelectboxColumn("RESULTATS", options=["⏳ En attente", "✅ Victoire du pronos", "❌ Défaite du pronos", "➖ Match Nul"], width="medium"),
             "RESULTATS FINANCIERS": st.column_config.TextColumn("RESULTATS FINANCIERS", disabled=True, width="medium"),
             "Total Cumulé": st.column_config.TextColumn("Total Cumulé", disabled=True, width="medium"),
             "Prono de l'IA": st.column_config.TextColumn("Prono de l'IA", disabled=True, width="medium")
         },
-        use_container_width=True, hide_index=True, height=750, key=f"editor_main_{table_choice}"
+        use_container_width=True, hide_index=True, height=750, key=editor_key
     )
     
     if not edited_df.equals(current_df):
+        for idx in range(len(edited_df)):
+            old_match = current_df.at[idx, "NOMS DES EQUIPES"]; new_match = edited_df.at[idx, "NOMS DES EQUIPES"]
+            if new_match != old_match and pd.notnull(new_match) and new_match != "":
+                match_found = False
+                for f in all_fixtures:
+                    if f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" == new_match:
+                        raw_h = get_deep_stats(f['teams']['home']['id']); raw_a = get_deep_stats(f['teams']['away']['id'])
+                        if raw_h and raw_a:
+                            hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                            if hs and as_:
+                                p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
+                                if len(p) >= 3:
+                                    best_idx = np.argmax(p)
+                                    edited_df.at[idx, "Prono de l'IA"] = f"🟢 {f['teams']['home']['name']}" if best_idx==1 else (f"🟢 {f['teams']['away']['name']}" if best_idx==2 else "🟢 Match Nul")
+                        match_found = True; break
+                if not match_found: edited_df.at[idx, "Prono de l'IA"] = ""
+            elif new_match == "" or pd.isnull(new_match): edited_df.at[idx, "Prono de l'IA"] = ""
+            
         edited_df = recalculate_bankroll(edited_df)
         st.session_state.bankrolls[table_choice] = edited_df
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+        st.session_state.bankroll_versions[table_choice] += 1
         st.rerun()
-
-# =====================================================================
-# --- AFFICHAGE : LIVE SURPRISE ---
-# =====================================================================
-elif st.session_state.mode == "live_surprise":
-    st.markdown("<h2 class='my-sel-title' style='color:#FF4400 !important; border-color:#FF4400;'>🔴 MATCHS EN DIRECT (LIVE)</h2>", unsafe_allow_html=True)
-    st.write("L'IA scanne les matchs en cours pour détecter des retournements de situation (Hold-ups).")
-    with st.spinner("Recherche des matchs en direct..."): live_matches = get_live_matches()
-    if not live_matches: st.info("Aucun match en direct dans nos ligues majeures actuellement. Revenez plus tard !")
-    else:
-        for f in live_matches:
-            hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
-            h_name, a_name = f['teams']['home']['name'], f['teams']['away']['name']
-            gh = f['goals']['home'] if f['goals']['home'] is not None else 0
-            ga = f['goals']['away'] if f['goals']['away'] is not None else 0
-            elapsed = f['fixture']['status']['elapsed']
-            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid); is_upset = False
-            if raw_h and raw_a:
-                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-                if hs and as_:
-                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
-                    if len(p) >= 3:
-                        fav = "None"
-                        if p[1] > p[2] + 0.15: fav = "Home"
-                        elif p[2] > p[1] + 0.15: fav = "Away"
-                        if fav == "Home" and ga > gh: is_upset = True
-                        if fav == "Away" and gh > ga: is_upset = True
-            card_class = "live-upset-card" if is_upset else "live-normal-card"
-            title_class = "blink-text" if is_upset else ""
-            st.markdown(f"<div class='{card_class}'><div style='display:flex; justify-content:space-between; align-items:center;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name} <span class='{title_class}'>{gh} - {ga}</span> {a_name}</span><span style='background:#0b1016; padding:4px 8px; border-radius:5px; font-weight:bold; color:#FF4400;'>⏱️ {elapsed}'</span></div></div>", unsafe_allow_html=True)
-            if st.button(f"📊 Voir Stats en Direct : {h_name} vs {a_name}", key=f"live_btn_{f['fixture']['id']}", use_container_width=True): show_live_stats_dialog(f, h_name, a_name, is_upset)
-
-# =====================================================================
-# --- AFFICHAGE : PRONOS PASSÉS ---
-# =====================================================================
-elif st.session_state.mode == "past_pronos":
-    st.markdown("<h2 class='my-sel-title' style='color:#aaaaaa !important; border-color:#aaaaaa;'>⏪ PRONOS PASSÉS</h2>", unsafe_allow_html=True)
-    today = datetime.now(); past_dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, 4)]
-    c_date, c_match = st.columns(2)
-    sel_past_date = c_date.selectbox("📅 Choisissez la date", past_dates, key="past_date")
-    with st.spinner("Recherche des archives..."): past_matches = get_past_matches(past_dates.index(sel_past_date) + 1)
-    if not past_matches: st.info("Aucune archive de match disponible pour cette date dans nos ligues.")
-    else:
-        match_map_past = {f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in past_matches}
-        sel_past_match = c_match.selectbox("⚽ Match archivé", list(match_map_past.keys()), key="past_match")
-        f_data = match_map_past[sel_past_match]
-        hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
-        h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
-        st.markdown("---")
-        with st.spinner("L'IA recalcule ce qu'elle aurait prédit..."):
-            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-            if raw_h and raw_a:
-                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-                if hs and as_:
-                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
-                    if len(p) >= 3:
-                        best_idx = np.argmax(p)
-                        ai_pick = f"Victoire {h_name}" if best_idx==1 else (f"Victoire {a_name}" if best_idx==2 else "Match Nul")
-                        st.write(f"### Avant le match, l'IA misait sur :")
-                        st.markdown(f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid #00D4FF; margin-bottom:15px; text-align:center;'><h2 style='color:#00D4FF; margin:0;'>🎯 {ai_pick}</h2><p style='color:#aaa; margin:0;'>Confiance : {p[best_idx]*100:.0f}%</p></div>", unsafe_allow_html=True)
-                        if st.button("Révéler le résultat final", type="primary", use_container_width=True): show_past_result_dialog(f_data, ai_pick, p)
-                else: st.warning("Données archivées insuffisantes.")
-            else: st.warning("Données archivées insuffisantes.")
 
 # =====================================================================
 # --- AFFICHAGE : SUGGESTIONS ---
@@ -961,6 +935,7 @@ elif st.session_state.mode == "suggestions":
         if not st.session_state.top_suggestions or st.session_state.get('suggestions_date') != today_str:
             st.session_state.top_suggestions = generate_top_10_suggestions(all_fixtures)
             st.session_state.suggestions_date = today_str
+            
         if not st.session_state.top_suggestions: st.info("Aucune suggestion avec un niveau de confiance suffisant pour le moment.")
         else:
             for i, item in enumerate(st.session_state.top_suggestions):
@@ -970,6 +945,7 @@ elif st.session_state.mode == "suggestions":
                 st.markdown(html_card, unsafe_allow_html=True)
                 if st.button(f"🔍 Analyse Détaillée du match #{i+1}", key=f"sugg_btn_{i}", use_container_width=True): show_scan_dialog(f)
                 st.markdown("<br>", unsafe_allow_html=True)
+    else: st.info("Aucun match disponible.")
 
 # =====================================================================
 # --- AFFICHAGE : SCANNEZ TOUS LES PRONOS ---
@@ -986,6 +962,7 @@ elif st.session_state.mode == "scan_all":
             for f in matches_scan:
                 h_name = f['teams']['home']['name']; a_name = f['teams']['away']['name']
                 if st.button(f"🔍 {f['fixture']['date'][11:16]} | {h_name} vs {a_name}", use_container_width=True, key=f"btn_scan_{f['fixture']['id']}"): show_scan_dialog(f)
+    else: st.info("Aucun match disponible.")
 
 # =====================================================================
 # --- AFFICHAGE : GRAPHIQUES DE COMPARAISON ---
@@ -1040,11 +1017,8 @@ elif st.session_state.mode == "graphs":
                         st.altair_chart(ch_def.properties(height=300, background='transparent').configure_view(strokeWidth=0), use_container_width=True, theme=None)
                         st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Encaissés</td><td>{h['avg_ga']:.2f}</td><td>{a['avg_ga']:.2f}</td></tr><tr><td>Expected Goals Against (xGA)</td><td>{adv['h_xga']:.2f}</td><td>{adv['a_xga']:.2f}</td></tr><tr><td>Clean Sheets</td><td>{h['cs_rate']:.0f}%</td><td>{a['cs_rate']:.0f}%</td></tr></table>", unsafe_allow_html=True)
                     elif "4. Conf" in sel_cat:
-                        h2h = get_h2h_stats(h['id'], a['id'])
-                        st.write("##### ⚔️ Face à Face (Historique)")
-                        if h2h:
-                            st.metric("Confrontations récentes analysées", h2h['matches'])
-                            st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>Comparaison</th></tr><tr><td>Moyenne Buts par Match (H2H)</td><td>{h2h['avg_goals']:.2f} buts</td></tr><tr><td>Volatilité du score</td><td>{'Haute' if h2h['vol']>1.5 else 'Basse'}</td></tr></table>", unsafe_allow_html=True)
+                        h2h = get_h2h_stats(h['id'], a['id']); st.write("##### ⚔️ Face à Face (Historique)")
+                        if h2h: st.metric("Confrontations récentes analysées", h2h['matches']); st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>Comparaison</th></tr><tr><td>Moyenne Buts par Match (H2H)</td><td>{h2h['avg_goals']:.2f} buts</td></tr><tr><td>Volatilité du score</td><td>{'Haute' if h2h['vol']>1.5 else 'Basse'}</td></tr></table>", unsafe_allow_html=True)
                         else: st.warning("Aucune confrontation directe récente.")
                     elif "5. Avantage" in sel_cat:
                         st.write("##### 🏟️ Domination Territoriale")
@@ -1070,8 +1044,7 @@ elif st.session_state.mode == "graphs":
                             for t in standings:
                                 if t['team']['id'] == h['id']: rank_h = t
                                 if t['team']['id'] == a['id']: rank_a = t
-                            if rank_h and rank_a:
-                                st.markdown(f"<table class='comp-table'><tr><th>Equipe</th><th>Classement</th><th>Points</th><th>Objectif</th></tr><tr><td>{h_name}</td><td>{rank_h['rank']}</td><td>{rank_h['points']}</td><td>{rank_h['description'] or 'Maintien'}</td></tr><tr><td>{a_name}</td><td>{rank_a['rank']}</td><td>{rank_a['points']}</td><td>{rank_a['description'] or 'Maintien'}</td></tr></table>", unsafe_allow_html=True)
+                            if rank_h and rank_a: st.markdown(f"<table class='comp-table'><tr><th>Equipe</th><th>Classement</th><th>Points</th><th>Objectif</th></tr><tr><td>{h_name}</td><td>{rank_h['rank']}</td><td>{rank_h['points']}</td><td>{rank_h['description'] or 'Maintien'}</td></tr><tr><td>{a_name}</td><td>{rank_a['rank']}</td><td>{rank_a['points']}</td><td>{rank_a['description'] or 'Maintien'}</td></tr></table>", unsafe_allow_html=True)
                         else: st.warning("Classement non disponible (Coupe ou tournoi en cours).")
                     elif "10. Données avancées" in sel_cat:
                         st.write("##### 🔬 Data Analyst (Extrapolées)")
@@ -1080,8 +1053,7 @@ elif st.session_state.mode == "graphs":
                         st.write("##### 🌧️ Impondérables")
                         random.seed(m_data['fixture']['id'])
                         meteo = random.choice(["Clair", "Pluie légère", "Nuageux", "Humide"]); fatigue = random.choice(["Reposés (7 jours)", "Calendrier chargé (3 jours)"])
-                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True)
-                        random.seed()
+                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True); random.seed()
                     elif "12. Analyse probabiliste" in sel_cat:
                         st.write("##### 🎲 Projection Modèle de Poisson")
                         p = get_coherent_probabilities(h, a)
@@ -1120,11 +1092,9 @@ elif st.session_state.mode == "my_selection":
                 st.markdown("<br>", unsafe_allow_html=True)
                 c_btn1, c_btn2 = st.columns(2)
                 with c_btn1:
-                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True):
-                        st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
+                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True): st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
                 with c_btn2:
-                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True):
-                        st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
+                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True): st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
 
         elif st.session_state.selection_validated:
             st.success("✅ Sélection enregistrée et isolée pour l'analyse.")
@@ -1188,8 +1158,7 @@ elif st.session_state.mode == "my_selection":
                             plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                             border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
                             
-                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True):
-                                show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
+                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True): show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
 
                             html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-top:-10px; margin-bottom:25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'><div style='text-align:center; margin-bottom: 10px;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name}</span> <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{a_name}</span></div>"
                             if not st.session_state.show_plan_b: html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:\"Kanit\", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p></div>"
