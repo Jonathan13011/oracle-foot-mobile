@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V53 (LE PIF DU FOOT - UX PARFAITE & PRONOS PASSES) ---
+# --- 1. CONFIGURATION V53 (LE PIF DU FOOT - WINRATE & UX AUTO-COLLAPSE) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -68,7 +68,7 @@ st.markdown("""
     /* SIDEBAR TEXTS */
     [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2, [data-testid="stSidebarUserContent"] h3 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
 
-    /* BOUTONS STANDARDS ANIMES */
+    /* BOUTONS STANDARDS ANIMES (Taille unifiée) */
     button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0B0E14 !important; font-weight: 900 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.3) !important; transition: all 0.3s ease !important; width: 100%; }
     button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 153, 0.5) !important; }
     
@@ -83,13 +83,13 @@ st.markdown("""
     button:has(p:contains("MA BANKROLL")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important; }
     button:has(p:contains("MA BANKROLL")) p { color: #0B0E14 !important; font-weight: 900 !important; }
     
-    /* BOUTON LIVE (ROUGE) */
-    button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; width: 100%; }
-    button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
-    
     /* BOUTON ROUGE SPÉCIFIQUE (VIDER TABLEAU) */
     button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; width: 100%; }
     button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
+
+    /* BOUTON LIVE (ROUGE) */
+    button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; width: 100%; }
+    button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
 
     /* MATCH HEADER & CARTES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: rgba(26, 28, 36, 0.8); padding: 12px 8px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; backdrop-filter: blur(5px); }
@@ -162,7 +162,7 @@ def get_empty_bankroll():
         "Prono de l'IA": ["" for _ in range(20)]
     })
 
-# STATES BANKROLL (Persistance Totale & Versioning pour forcer le rafraîchissement)
+# STATES BANKROLL (Persistance Totale & Versioning)
 BANKROLL_FILE = 'bankroll_data.pkl'
 if 'bankroll_versions' not in st.session_state:
     st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
@@ -181,11 +181,13 @@ if 'bankrolls' not in st.session_state:
             st.session_state.bankrolls[f"Tableau {i}"] = get_empty_bankroll()
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
+# Sécurité Rétrocompatibilité
 needs_save = False
 for k in st.session_state.bankrolls:
     if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
         st.session_state.bankrolls[k]["Prono de l'IA"] = ""; needs_save = True
     st.session_state.bankrolls[k]["NOMS DES EQUIPES"] = st.session_state.bankrolls[k]["NOMS DES EQUIPES"].fillna("")
+    st.session_state.bankrolls[k]["PRONOS"] = st.session_state.bankrolls[k]["PRONOS"].fillna("")
 if needs_save: joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
@@ -547,7 +549,7 @@ def style_bankroll_df(df):
         return c
     return df.style.apply(highlight, axis=None)
 
-# --- FONCTION POUR AFFICHER L'ANALYSE INLINE ---
+# --- FONCTION POUR AFFICHER L'ANALYSE INLINE DANS WIZARD ---
 def display_scan_inline(f_data):
     hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
     h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
@@ -682,6 +684,89 @@ def show_past_result_dialog(f, ai_pick, p):
     else:
         st.error(f"❌ L'IA s'est trompée. Le vrai résultat est : {actual_res}.")
         st.info("💡 Le football n'est pas une science exacte. Les algorithmes limitent les risques mais n'éliminent pas les surprises.")
+
+@st.dialog("📊 EXACTITUDE DE L'IA (JOUR SÉLECTIONNÉ)")
+def show_day_accuracy_dialog(date_str, days_ago):
+    st.write(f"Vérification des performances de l'algorithme pour le **{date_str}**...")
+    progress_bar = st.progress(0)
+    matches = get_past_matches(days_ago)
+    
+    if not matches:
+        st.warning("Aucun match terminé trouvé pour cette date.")
+        return
+        
+    limit = min(len(matches), 15)
+    matches_to_eval = random.sample(matches, limit) if len(matches) > limit else matches
+    
+    correct, total = 0, 0
+    for i, f in enumerate(matches_to_eval):
+        hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
+        gh, ga = f['goals']['home'], f['goals']['away']
+        if gh is not None and ga is not None:
+            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+            if raw_h and raw_a:
+                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                if hs and as_:
+                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
+                    if len(p) >= 3:
+                        best_idx = np.argmax(p)
+                        ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
+                        actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
+                        if ai_pick == actual_res: correct += 1
+                        total += 1
+        progress_bar.progress((i + 1) / limit)
+    progress_bar.empty()
+    
+    if total > 0:
+        acc = (correct / total) * 100
+        color = "#00FF99" if acc >= 50 else ("#FFA500" if acc >= 35 else "#FF4B4B")
+        st.markdown(f"<div style='background:#1a1c24; padding:20px; border-radius:12px; text-align:center; border:2px solid {color};'><h1 style='color:{color}; font-size:3.5rem; margin:0;'>{acc:.0f}%</h1><p style='color:#ccc; font-size:1.1rem; margin-top:10px;'><b>{correct}</b> pronostics exacts sur <b>{total}</b> matchs analysés.</p></div>", unsafe_allow_html=True)
+    else:
+        st.info("Données insuffisantes pour évaluer l'exactitude de cette journée.")
+
+@st.dialog("📈 EXACTITUDE GLOBALE (3 DERNIERS JOURS)")
+def show_3days_accuracy_dialog(past_dates):
+    st.write(f"Analyse des performances sur les 3 derniers jours...")
+    progress_bar = st.progress(0)
+    
+    all_matches_eval = []
+    for i, d in enumerate(past_dates):
+        m_day = get_past_matches(i + 1)
+        if m_day:
+            lim = min(len(m_day), 10) 
+            sampled = random.sample(m_day, lim) if len(m_day) > lim else m_day
+            all_matches_eval.extend(sampled)
+            
+    correct, total = 0, 0
+    limit = len(all_matches_eval)
+    if limit == 0:
+        st.warning("Aucun match trouvé sur les 3 derniers jours.")
+        return
+        
+    for i, f in enumerate(all_matches_eval):
+        hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
+        gh, ga = f['goals']['home'], f['goals']['away']
+        if gh is not None and ga is not None:
+            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+            if raw_h and raw_a:
+                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                if hs and as_:
+                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
+                    if len(p) >= 3:
+                        best_idx = np.argmax(p)
+                        ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
+                        actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
+                        if ai_pick == actual_res: correct += 1
+                        total += 1
+        progress_bar.progress((i + 1) / limit)
+    progress_bar.empty()
+    
+    if total > 0:
+        acc = (correct / total) * 100
+        color = "#00FF99" if acc >= 50 else ("#FFA500" if acc >= 35 else "#FF4B4B")
+        st.markdown(f"<div style='background:#1a1c24; padding:20px; border-radius:12px; text-align:center; border:2px solid {color};'><h1 style='color:{color}; font-size:3.5rem; margin:0;'>{acc:.0f}%</h1><p style='color:#ccc; font-size:1.1rem; margin-top:10px;'><b>{correct}</b> pronostics exacts sur <b>{total}</b> matchs analysés au total.</p></div>", unsafe_allow_html=True)
+    else:
+        st.info("Données insuffisantes pour évaluer l'exactitude globale.")
 
 @st.dialog("📊 HISTORIQUE & CLASSEMENT")
 def show_history_and_rank_dialog(h_name, h_id, h_hist, h_form, a_name, a_id, a_hist, a_form, league_id):
@@ -965,21 +1050,25 @@ elif st.session_state.mode == "live_surprise":
             if st.button(f"📊 Voir Stats en Direct : {h_name} vs {a_name}", key=f"live_btn_{f['fixture']['id']}", use_container_width=True): show_live_stats_dialog(f, h_name, a_name, is_upset)
 
 # =====================================================================
-# --- AFFICHAGE : PRONOS PASSÉS ---
+# --- AFFICHAGE : PRONOS PASSÉS (AVEC TAUX D'EXACTITUDE) ---
 # =====================================================================
 elif st.session_state.mode == "past_pronos":
     st.markdown("<h2 class='my-sel-title' style='color:#aaaaaa !important; border-color:#aaaaaa;'>⏪ PRONOS PASSÉS</h2>", unsafe_allow_html=True)
     today = datetime.now(); past_dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, 4)]
     c_date, c_match = st.columns(2)
     sel_past_date = c_date.selectbox("📅 Choisissez la date", past_dates, key="past_date")
+    
     with st.spinner("Recherche des archives..."): past_matches = get_past_matches(past_dates.index(sel_past_date) + 1)
-    if not past_matches: st.info("Aucune archive de match disponible pour cette date dans nos ligues.")
+    
+    if not past_matches: 
+        st.info("Aucune archive de match disponible pour cette date dans nos ligues.")
     else:
         match_map_past = {f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in past_matches}
         sel_past_match = c_match.selectbox("⚽ Match archivé", list(match_map_past.keys()), key="past_match")
         f_data = match_map_past[sel_past_match]
         hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
         h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
+        
         st.markdown("---")
         with st.spinner("L'IA recalcule ce qu'elle aurait prédit..."):
             raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
@@ -995,6 +1084,15 @@ elif st.session_state.mode == "past_pronos":
                         if st.button("Révéler le résultat final", type="primary", use_container_width=True): show_past_result_dialog(f_data, ai_pick, p)
                 else: st.warning("Données archivées insuffisantes.")
             else: st.warning("Données archivées insuffisantes.")
+
+        st.markdown("<hr style='border-color:#333; margin: 15px 0;'>", unsafe_allow_html=True)
+        c_acc1, c_acc2 = st.columns(2)
+        with c_acc1:
+            if st.button("📊 Taux d'exactitude (Jour sélectionné)", use_container_width=True):
+                show_day_accuracy_dialog(sel_past_date, past_dates.index(sel_past_date) + 1)
+        with c_acc2:
+            if st.button("📈 Taux d'exactitude (3 précédents jours)", use_container_width=True):
+                show_3days_accuracy_dialog(past_dates)
 
 # =====================================================================
 # --- AFFICHAGE : SUGGESTIONS ---
@@ -1166,9 +1264,11 @@ elif st.session_state.mode == "my_selection":
                 st.markdown("<br>", unsafe_allow_html=True)
                 c_btn1, c_btn2 = st.columns(2)
                 with c_btn1:
-                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True): st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
+                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True):
+                        st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
                 with c_btn2:
-                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True): st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
+                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True):
+                        st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
 
         elif st.session_state.selection_validated:
             st.success("✅ Sélection enregistrée et isolée pour l'analyse.")
@@ -1232,7 +1332,8 @@ elif st.session_state.mode == "my_selection":
                             plan_b_pick = f"Victoire {h_name}" if sec_best_idx==1 else (f"Victoire {a_name}" if sec_best_idx==2 else "Match Nul")
                             border_color = "#FF8800" if st.session_state.show_plan_b else "#00FF99"
                             
-                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True): show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
+                            if st.button(f"🔍 {h_name} vs {a_name} (Classement & Historique)", key=f"auto_btn_{f['fixture']['id']}", use_container_width=True):
+                                show_history_and_rank_dialog(h_name, hid, raw_h['history'], hs['form'], a_name, aid, raw_a['history'], as_['form'], f['league']['id'])
 
                             html_card = f"<div style='background:#1a1c24; padding:15px; border-radius:12px; border-left: 5px solid {border_color}; margin-top:-10px; margin-bottom:25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);'><div style='text-align:center; margin-bottom: 10px;'><span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{h_name}</span> <span style='color:#aaaaaa; font-size:0.9rem;'>vs</span> <span style='color:#FFFFFF; font-size:1.1rem; font-weight:bold; font-family:\"Kanit\", sans-serif;'>{a_name}</span></div>"
                             if not st.session_state.show_plan_b: html_card += f"<div style='text-align:center; background:#0b1016; padding:10px; border-radius:8px; margin-bottom:10px;'><p style='margin:0; font-size:1.2rem; font-weight:900; color:#00FF99; font-family:\"Kanit\", sans-serif;'>🎯 {ai_pick.upper()} <span style='font-size:1rem; color:#aaa;'>({p[best_idx]*100:.0f}%)</span></p><p style='margin:5px 0 0 0; color:#e0e0e0; font-size:0.9rem; font-style:italic;'>{gen_smart_justif('🏆', ai_pick, hs, as_)}</p></div>"
