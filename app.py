@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V53 (LE PIF DU FOOT - WINRATE & UX AUTO-COLLAPSE) ---
+# --- 1. CONFIGURATION V54 (LE PIF DU FOOT - WINRATE FIXE & UX PARFAITE) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -83,13 +83,13 @@ st.markdown("""
     button:has(p:contains("MA BANKROLL")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important; }
     button:has(p:contains("MA BANKROLL")) p { color: #0B0E14 !important; font-weight: 900 !important; }
     
-    /* BOUTON ROUGE SPÉCIFIQUE (VIDER TABLEAU) */
-    button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; width: 100%; }
-    button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
-
     /* BOUTON LIVE (ROUGE) */
     button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; width: 100%; }
     button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
+    
+    /* BOUTON ROUGE SPÉCIFIQUE (VIDER TABLEAU) */
+    button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; width: 100%; }
+    button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
 
     /* MATCH HEADER & CARTES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: rgba(26, 28, 36, 0.8); padding: 12px 8px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; backdrop-filter: blur(5px); }
@@ -162,7 +162,7 @@ def get_empty_bankroll():
         "Prono de l'IA": ["" for _ in range(20)]
     })
 
-# STATES BANKROLL (Persistance Totale & Versioning)
+# STATES BANKROLL (Persistance Totale & Versioning pour forcer le rafraîchissement)
 BANKROLL_FILE = 'bankroll_data.pkl'
 if 'bankroll_versions' not in st.session_state:
     st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
@@ -181,7 +181,7 @@ if 'bankrolls' not in st.session_state:
             st.session_state.bankrolls[f"Tableau {i}"] = get_empty_bankroll()
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
-# Sécurité Rétrocompatibilité
+# Sécurité Rétrocompatibilité Bankroll
 needs_save = False
 for k in st.session_state.bankrolls:
     if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
@@ -189,6 +189,15 @@ for k in st.session_state.bankrolls:
     st.session_state.bankrolls[k]["NOMS DES EQUIPES"] = st.session_state.bankrolls[k]["NOMS DES EQUIPES"].fillna("")
     st.session_state.bankrolls[k]["PRONOS"] = st.session_state.bankrolls[k]["PRONOS"].fillna("")
 if needs_save: joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+
+# FICHIER MÉMOIRE POUR LE TAUX D'EXACTITUDE (WINRATE)
+ACCURACY_FILE = 'accuracy_history.pkl'
+if 'accuracy_history' not in st.session_state:
+    if os.path.exists(ACCURACY_FILE):
+        try: st.session_state.accuracy_history = joblib.load(ACCURACY_FILE)
+        except: st.session_state.accuracy_history = {}
+    else:
+        st.session_state.accuracy_history = {}
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
 except: model = None; MODEL_LOADED = False
@@ -549,7 +558,7 @@ def style_bankroll_df(df):
         return c
     return df.style.apply(highlight, axis=None)
 
-# --- FONCTION POUR AFFICHER L'ANALYSE INLINE DANS WIZARD ---
+# --- FONCTION POUR AFFICHER L'ANALYSE INLINE ---
 def display_scan_inline(f_data):
     hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
     h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
@@ -687,36 +696,45 @@ def show_past_result_dialog(f, ai_pick, p):
 
 @st.dialog("📊 EXACTITUDE DE L'IA (JOUR SÉLECTIONNÉ)")
 def show_day_accuracy_dialog(date_str, days_ago):
-    st.write(f"Vérification des performances de l'algorithme pour le **{date_str}**...")
-    progress_bar = st.progress(0)
-    matches = get_past_matches(days_ago)
-    
-    if not matches:
-        st.warning("Aucun match terminé trouvé pour cette date.")
-        return
+    if date_str in st.session_state.accuracy_history:
+        correct = st.session_state.accuracy_history[date_str]['correct']
+        total = st.session_state.accuracy_history[date_str]['total']
+        st.write(f"Données récupérées depuis la mémoire de l'IA pour le **{date_str}**...")
+    else:
+        st.write(f"Vérification et enregistrement des performances de l'algorithme pour le **{date_str}**...")
+        progress_bar = st.progress(0)
+        matches = get_past_matches(days_ago)
         
-    limit = min(len(matches), 15)
-    matches_to_eval = random.sample(matches, limit) if len(matches) > limit else matches
-    
-    correct, total = 0, 0
-    for i, f in enumerate(matches_to_eval):
-        hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
-        gh, ga = f['goals']['home'], f['goals']['away']
-        if gh is not None and ga is not None:
-            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-            if raw_h and raw_a:
-                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-                if hs and as_:
-                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
-                    if len(p) >= 3:
-                        best_idx = np.argmax(p)
-                        ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
-                        actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
-                        if ai_pick == actual_res: correct += 1
-                        total += 1
-        progress_bar.progress((i + 1) / limit)
-    progress_bar.empty()
-    
+        if not matches:
+            st.warning("Aucun match terminé trouvé pour cette date.")
+            return
+            
+        # Tri déterministe pour toujours évaluer les mêmes matchs pour un jour donné (limité à 25 pour rapidité)
+        matches_to_eval = sorted(matches, key=lambda x: x['fixture']['id'])[:25]
+        
+        correct, total = 0, 0
+        for i, f in enumerate(matches_to_eval):
+            hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
+            gh, ga = f['goals']['home'], f['goals']['away']
+            if gh is not None and ga is not None:
+                raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                if raw_h and raw_a:
+                    hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                    if hs and as_:
+                        p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
+                        if len(p) >= 3:
+                            best_idx = np.argmax(p)
+                            ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
+                            actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
+                            if ai_pick == actual_res: correct += 1
+                            total += 1
+            progress_bar.progress((i + 1) / len(matches_to_eval))
+        progress_bar.empty()
+        
+        if total > 0:
+            st.session_state.accuracy_history[date_str] = {'correct': correct, 'total': total}
+            joblib.dump(st.session_state.accuracy_history, ACCURACY_FILE)
+            
     if total > 0:
         acc = (correct / total) * 100
         color = "#00FF99" if acc >= 50 else ("#FFA500" if acc >= 35 else "#FF4B4B")
@@ -726,45 +744,47 @@ def show_day_accuracy_dialog(date_str, days_ago):
 
 @st.dialog("📈 EXACTITUDE GLOBALE (3 DERNIERS JOURS)")
 def show_3days_accuracy_dialog(past_dates):
-    st.write(f"Analyse des performances sur les 3 derniers jours...")
+    st.write(f"Analyse croisée des performances sur les 3 derniers jours...")
+    correct_total, match_total = 0, 0
     progress_bar = st.progress(0)
     
-    all_matches_eval = []
-    for i, d in enumerate(past_dates):
-        m_day = get_past_matches(i + 1)
-        if m_day:
-            lim = min(len(m_day), 10) 
-            sampled = random.sample(m_day, lim) if len(m_day) > lim else m_day
-            all_matches_eval.extend(sampled)
-            
-    correct, total = 0, 0
-    limit = len(all_matches_eval)
-    if limit == 0:
-        st.warning("Aucun match trouvé sur les 3 derniers jours.")
-        return
-        
-    for i, f in enumerate(all_matches_eval):
-        hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
-        gh, ga = f['goals']['home'], f['goals']['away']
-        if gh is not None and ga is not None:
-            raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-            if raw_h and raw_a:
-                hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
-                if hs and as_:
-                    p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
-                    if len(p) >= 3:
-                        best_idx = np.argmax(p)
-                        ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
-                        actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
-                        if ai_pick == actual_res: correct += 1
-                        total += 1
-        progress_bar.progress((i + 1) / limit)
+    for d_idx, date_str in enumerate(past_dates):
+        if date_str in st.session_state.accuracy_history:
+            correct_total += st.session_state.accuracy_history[date_str]['correct']
+            match_total += st.session_state.accuracy_history[date_str]['total']
+        else:
+            days_ago = d_idx + 1
+            matches = get_past_matches(days_ago)
+            if matches:
+                matches_to_eval = sorted(matches, key=lambda x: x['fixture']['id'])[:25]
+                correct, total = 0, 0
+                for i, f in enumerate(matches_to_eval):
+                    hid, aid = f['teams']['home']['id'], f['teams']['away']['id']
+                    gh, ga = f['goals']['home'], f['goals']['away']
+                    if gh is not None and ga is not None:
+                        raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                        if raw_h and raw_a:
+                            hs = process_stats_by_filter(raw_h, 10); as_ = process_stats_by_filter(raw_a, 10)
+                            if hs and as_:
+                                p = get_coherent_probabilities(hs, as_); p = np.array(p).flatten()
+                                if len(p) >= 3:
+                                    best_idx = np.argmax(p)
+                                    ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
+                                    actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
+                                    if ai_pick == actual_res: correct += 1
+                                    total += 1
+                if total > 0:
+                    st.session_state.accuracy_history[date_str] = {'correct': correct, 'total': total}
+                    joblib.dump(st.session_state.accuracy_history, ACCURACY_FILE)
+                    correct_total += correct
+                    match_total += total
+        progress_bar.progress((d_idx + 1) / 3)
     progress_bar.empty()
     
-    if total > 0:
-        acc = (correct / total) * 100
+    if match_total > 0:
+        acc = (correct_total / match_total) * 100
         color = "#00FF99" if acc >= 50 else ("#FFA500" if acc >= 35 else "#FF4B4B")
-        st.markdown(f"<div style='background:#1a1c24; padding:20px; border-radius:12px; text-align:center; border:2px solid {color};'><h1 style='color:{color}; font-size:3.5rem; margin:0;'>{acc:.0f}%</h1><p style='color:#ccc; font-size:1.1rem; margin-top:10px;'><b>{correct}</b> pronostics exacts sur <b>{total}</b> matchs analysés au total.</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a1c24; padding:20px; border-radius:12px; text-align:center; border:2px solid {color};'><h1 style='color:{color}; font-size:3.5rem; margin:0;'>{acc:.0f}%</h1><p style='color:#ccc; font-size:1.1rem; margin-top:10px;'><b>{correct_total}</b> pronostics exacts sur <b>{match_total}</b> matchs analysés au total.</p></div>", unsafe_allow_html=True)
     else:
         st.info("Données insuffisantes pour évaluer l'exactitude globale.")
 
@@ -1050,7 +1070,7 @@ elif st.session_state.mode == "live_surprise":
             if st.button(f"📊 Voir Stats en Direct : {h_name} vs {a_name}", key=f"live_btn_{f['fixture']['id']}", use_container_width=True): show_live_stats_dialog(f, h_name, a_name, is_upset)
 
 # =====================================================================
-# --- AFFICHAGE : PRONOS PASSÉS (AVEC TAUX D'EXACTITUDE) ---
+# --- AFFICHAGE : PRONOS PASSÉS ---
 # =====================================================================
 elif st.session_state.mode == "past_pronos":
     st.markdown("<h2 class='my-sel-title' style='color:#aaaaaa !important; border-color:#aaaaaa;'>⏪ PRONOS PASSÉS</h2>", unsafe_allow_html=True)
