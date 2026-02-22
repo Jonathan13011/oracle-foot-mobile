@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V52 (LE PIF DU FOOT - BANKROLL ULTIME & DESIGN DYNAMIQUE) ---
+# --- 1. CONFIGURATION V52 (LE PIF DU FOOT - BANKROLL ULTIME & DESIGN) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -65,6 +65,9 @@ st.markdown("""
     li[role="option"]:hover span, li[role="option"][aria-selected="true"] span,
     li[role="option"]:hover div, li[role="option"][aria-selected="true"] div { color: #000000 !important; font-weight: 900 !important; }
 
+    /* SIDEBAR TEXTS */
+    [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2, [data-testid="stSidebarUserContent"] h3 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
+
     /* BOUTONS STANDARDS ANIMES */
     button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0B0E14 !important; font-weight: 900 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.3) !important; transition: all 0.3s ease !important; }
     button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 153, 0.5) !important; }
@@ -80,6 +83,10 @@ st.markdown("""
     button:has(p:contains("MA BANKROLL")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important; }
     button:has(p:contains("MA BANKROLL")) p { color: #0B0E14 !important; font-weight: 900 !important; }
     
+    /* BOUTON ROUGE SPÉCIFIQUE (VIDER TABLEAU) */
+    button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; }
+    button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
+
     /* BOUTON LIVE (ROUGE) */
     button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; }
     button:has(p:contains("LIVE SURPRISE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
@@ -155,7 +162,7 @@ def get_empty_bankroll():
         "Prono de l'IA": ["" for _ in range(20)]
     })
 
-# STATES BANKROLL (Persistance Totale & Versioning pour forcer le rafraîchissement)
+# STATES BANKROLL (Persistance Totale & Versioning)
 BANKROLL_FILE = 'bankroll_data.pkl'
 if 'bankroll_versions' not in st.session_state:
     st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
@@ -174,12 +181,13 @@ if 'bankrolls' not in st.session_state:
             st.session_state.bankrolls[f"Tableau {i}"] = get_empty_bankroll()
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
+# Nettoyage rétroactif pour éviter les bugs avec None
 needs_save = False
 for k in st.session_state.bankrolls:
     if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
         st.session_state.bankrolls[k]["Prono de l'IA"] = ""; needs_save = True
-    # Assurer que les 'None' sont des strings vides pour éviter les bugs d'affichage
     st.session_state.bankrolls[k]["NOMS DES EQUIPES"] = st.session_state.bankrolls[k]["NOMS DES EQUIPES"].fillna("")
+    st.session_state.bankrolls[k]["PRONOS"] = st.session_state.bankrolls[k]["PRONOS"].fillna("")
 if needs_save: joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
@@ -464,7 +472,8 @@ prono_options = ["", "Match Nul", "Moins de 2.5 buts", "Plus de 2.5 buts", "Les 
 if all_fixtures:
     match_options += [f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" for f in all_fixtures]
     teams = set([f['teams']['home']['name'] for f in all_fixtures] + [f['teams']['away']['name'] for f in all_fixtures])
-    prono_options += list(teams)
+    # Ajout automatique de "Victoire X" pour correspondre parfaitement aux sélections de l'assistant
+    prono_options += list(teams) + [f"Victoire {t}" for t in teams]
 
 def style_prono_col(col):
     if col.name == "Prono de l'IA": return ['background-color: #0a2918; color: #00FF99; font-weight: bold;'] * len(col)
@@ -588,7 +597,7 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
             home_team = sel_match.split(" vs ")[0]
             away_team = sel_match.split(" vs ")[1]
             
-            # --- BOUTON D'ANALYSE INTEGRE ---
+            # --- BOUTON D'ANALYSE INTEGRE SANS NESTED DIALOG ---
             st.markdown("<br>", unsafe_allow_html=True)
             if "wiz_ana_open" not in st.session_state: st.session_state.wiz_ana_open = False
             if st.button(f"🧠 Analyser {home_team} vs {away_team} avant de parier", type="secondary", use_container_width=True):
@@ -611,13 +620,17 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                 
                 if st.button("✅ ENREGISTRER DANS LE TABLEAU", type="primary", use_container_width=True):
                     df = st.session_state.bankrolls[table_choice]
+                    
+                    # Remplacement rigoureux des None par des chaînes vides pour trouver la 1ère ligne vide
+                    df['NOMS DES EQUIPES'] = df['NOMS DES EQUIPES'].fillna("")
                     empty_mask = df['NOMS DES EQUIPES'] == ""
+                    
                     if empty_mask.any():
                         idx = empty_mask.idxmax()
                         df.at[idx, "NOMS DES EQUIPES"] = sel_match
                         df.at[idx, "PRONOS"] = sel_prono
-                        df.at[idx, "MISES"] = mise
-                        df.at[idx, "COTES"] = cote
+                        df.at[idx, "MISES"] = float(mise)
+                        df.at[idx, "COTES"] = float(cote)
                         df.at[idx, "RESULTATS"] = "⏳ En attente"
                         
                         match_data = next((f for f in all_fixtures if f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" == sel_match), None)
@@ -636,14 +649,10 @@ def bankroll_wizard_dialog(table_choice, all_fixtures):
                         st.session_state.bankrolls[table_choice] = df
                         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
                         st.session_state.wiz_ana_open = False
-                        st.session_state.bankroll_versions[table_choice] += 1 # FORCE LA MISE A JOUR DU WIDGET
+                        st.session_state.bankroll_versions[table_choice] += 1 # Force le rafraîchissement
                         st.rerun()
                     else:
                         st.error("Ce tableau est plein (20 paris max). Veuillez utiliser un autre tableau.")
-
-@st.dialog("🧠 DÉCONSTRUCTION DE L'ANALYSE IA")
-def show_scan_dialog(f_data):
-    display_scan_inline(f_data)
 
 @st.dialog("🔴 STATISTIQUES EN DIRECT")
 def show_live_stats_dialog(f, h_name, a_name, is_upset):
@@ -823,8 +832,7 @@ with st.sidebar:
         st.session_state.mode = "suggestions"; st.session_state.collapse_sidebar = True
         
     if st.button("💰 MA BANKROLL"):
-        st.session_state.mode = "bankroll"
-        st.session_state.collapse_sidebar = True
+        st.session_state.mode = "bankroll"; st.session_state.collapse_sidebar = True
 
     if st.button("⏪ PRONOS PASSÉS"):
         st.session_state.mode = "past_pronos"; st.session_state.collapse_sidebar = True
@@ -838,7 +846,7 @@ with st.sidebar:
 
 
 # =====================================================================
-# --- AFFICHAGE : MA BANKROLL ---
+# --- AFFICHAGE : MA BANKROLL (WIZARD ET AFFICHAGE CENTRAL) ---
 # =====================================================================
 if st.session_state.mode == "bankroll":
     st.markdown("<h2 class='my-sel-title' style='color:#FFD700 !important; border-color:#FFD700;'>💰 GESTION DE BANKROLL</h2>", unsafe_allow_html=True)
@@ -876,6 +884,8 @@ if st.session_state.mode == "bankroll":
             st.session_state.bankroll_versions[table_choice] += 1
 
     current_df = st.session_state.bankrolls[table_choice].copy()
+    current_df.fillna("", inplace=True) # Sécurité maximale contre les valeurs nulles
+    
     cols_order = ["PARIS", "NOMS DES EQUIPES", "COTES", "PRONOS", "MISES", "RESULTATS", "RESULTATS FINANCIERS", "Total Cumulé", "Prono de l'IA"]
     current_df = current_df[cols_order]
     
@@ -900,7 +910,10 @@ if st.session_state.mode == "bankroll":
         use_container_width=True, hide_index=True, height=750, key=editor_key
     )
     
-    if not edited_df.equals(current_df):
+    edited_df.fillna("", inplace=True)
+    
+    # Vérification des changements manuels de l'utilisateur
+    if not edited_df.to_dict('records') == current_df.to_dict('records'):
         for idx in range(len(edited_df)):
             old_match = current_df.at[idx, "NOMS DES EQUIPES"]; new_match = edited_df.at[idx, "NOMS DES EQUIPES"]
             if new_match != old_match and pd.notnull(new_match) and new_match != "":
@@ -1017,8 +1030,11 @@ elif st.session_state.mode == "graphs":
                         st.altair_chart(ch_def.properties(height=300, background='transparent').configure_view(strokeWidth=0), use_container_width=True, theme=None)
                         st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>{h_name}</th><th>{a_name}</th></tr><tr><td>Moy. Buts Encaissés</td><td>{h['avg_ga']:.2f}</td><td>{a['avg_ga']:.2f}</td></tr><tr><td>Expected Goals Against (xGA)</td><td>{adv['h_xga']:.2f}</td><td>{adv['a_xga']:.2f}</td></tr><tr><td>Clean Sheets</td><td>{h['cs_rate']:.0f}%</td><td>{a['cs_rate']:.0f}%</td></tr></table>", unsafe_allow_html=True)
                     elif "4. Conf" in sel_cat:
-                        h2h = get_h2h_stats(h['id'], a['id']); st.write("##### ⚔️ Face à Face (Historique)")
-                        if h2h: st.metric("Confrontations récentes analysées", h2h['matches']); st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>Comparaison</th></tr><tr><td>Moyenne Buts par Match (H2H)</td><td>{h2h['avg_goals']:.2f} buts</td></tr><tr><td>Volatilité du score</td><td>{'Haute' if h2h['vol']>1.5 else 'Basse'}</td></tr></table>", unsafe_allow_html=True)
+                        h2h = get_h2h_stats(h['id'], a['id'])
+                        st.write("##### ⚔️ Face à Face (Historique)")
+                        if h2h:
+                            st.metric("Confrontations récentes analysées", h2h['matches'])
+                            st.markdown(f"<table class='comp-table'><tr><th>Donnée</th><th>Comparaison</th></tr><tr><td>Moyenne Buts par Match (H2H)</td><td>{h2h['avg_goals']:.2f} buts</td></tr><tr><td>Volatilité du score</td><td>{'Haute' if h2h['vol']>1.5 else 'Basse'}</td></tr></table>", unsafe_allow_html=True)
                         else: st.warning("Aucune confrontation directe récente.")
                     elif "5. Avantage" in sel_cat:
                         st.write("##### 🏟️ Domination Territoriale")
@@ -1044,7 +1060,8 @@ elif st.session_state.mode == "graphs":
                             for t in standings:
                                 if t['team']['id'] == h['id']: rank_h = t
                                 if t['team']['id'] == a['id']: rank_a = t
-                            if rank_h and rank_a: st.markdown(f"<table class='comp-table'><tr><th>Equipe</th><th>Classement</th><th>Points</th><th>Objectif</th></tr><tr><td>{h_name}</td><td>{rank_h['rank']}</td><td>{rank_h['points']}</td><td>{rank_h['description'] or 'Maintien'}</td></tr><tr><td>{a_name}</td><td>{rank_a['rank']}</td><td>{rank_a['points']}</td><td>{rank_a['description'] or 'Maintien'}</td></tr></table>", unsafe_allow_html=True)
+                            if rank_h and rank_a:
+                                st.markdown(f"<table class='comp-table'><tr><th>Equipe</th><th>Classement</th><th>Points</th><th>Objectif</th></tr><tr><td>{h_name}</td><td>{rank_h['rank']}</td><td>{rank_h['points']}</td><td>{rank_h['description'] or 'Maintien'}</td></tr><tr><td>{a_name}</td><td>{rank_a['rank']}</td><td>{rank_a['points']}</td><td>{rank_a['description'] or 'Maintien'}</td></tr></table>", unsafe_allow_html=True)
                         else: st.warning("Classement non disponible (Coupe ou tournoi en cours).")
                     elif "10. Données avancées" in sel_cat:
                         st.write("##### 🔬 Data Analyst (Extrapolées)")
@@ -1053,7 +1070,8 @@ elif st.session_state.mode == "graphs":
                         st.write("##### 🌧️ Impondérables")
                         random.seed(m_data['fixture']['id'])
                         meteo = random.choice(["Clair", "Pluie légère", "Nuageux", "Humide"]); fatigue = random.choice(["Reposés (7 jours)", "Calendrier chargé (3 jours)"])
-                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True); random.seed()
+                        st.markdown(f"<table class='comp-table'><tr><th>Facteur</th><th>Impact estimé</th></tr><tr><td>Météo prévue</td><td>{meteo}</td></tr><tr><td>Fatigue</td><td>{fatigue}</td></tr><tr><td>Arbitrage</td><td>{'Sévère (Cartons probables)' if h['red_cards']+a['red_cards']>1 else 'Laxiste'}</td></tr></table>", unsafe_allow_html=True)
+                        random.seed()
                     elif "12. Analyse probabiliste" in sel_cat:
                         st.write("##### 🎲 Projection Modèle de Poisson")
                         p = get_coherent_probabilities(h, a)
@@ -1092,9 +1110,11 @@ elif st.session_state.mode == "my_selection":
                 st.markdown("<br>", unsafe_allow_html=True)
                 c_btn1, c_btn2 = st.columns(2)
                 with c_btn1:
-                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True): st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
+                    if st.button("✅ VALIDER MA SÉLECTION", type="primary", use_container_width=True):
+                        st.session_state.selection_validated = True; st.session_state.auto_analyzed = False; st.rerun()
                 with c_btn2:
-                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True): st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
+                    if st.button("🤖 ANALYSE AUTO (TOUS)", type="secondary", use_container_width=True):
+                        st.session_state.selected_auto_date = sel_date_my_sel; st.session_state.auto_analyzed = True; st.session_state.selection_validated = False; st.session_state.show_plan_b = False; st.rerun()
 
         elif st.session_state.selection_validated:
             st.success("✅ Sélection enregistrée et isolée pour l'analyse.")
