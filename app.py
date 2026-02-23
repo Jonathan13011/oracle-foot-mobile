@@ -13,7 +13,7 @@ import os
 import base64
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V58 (LE PIF DU FOOT - ORACLE CORRIGÉ & FIABLE) ---
+# --- 1. CONFIGURATION V59 (LE PIF DU FOOT - UX PREMIUM & LOGO CONTOUR PNG) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -28,83 +28,85 @@ st.markdown("""
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { align-items: center; text-align: center; }
 
     /* =========================================
-       ANIMATIONS ET DESIGN DU LOGO
+       ANIMATIONS ET DESIGN DU LOGO (.PNG CONTOUR)
        ========================================= */
     
     @keyframes shrinkLogoWidth {
-        0% { width: 340px; box-shadow: 0 0 30px rgba(0, 255, 153, 0.3); }
-        100% { width: 238px; box-shadow: 0 0 20px rgba(0, 255, 153, 0.2); } 
+        0% { width: 340px; filter: drop-shadow(0 0 15px rgba(0, 255, 153, 0.2)); }
+        100% { width: 238px; filter: drop-shadow(0 0 10px rgba(0, 255, 153, 0.3)); } 
     }
 
     .logo-wrapper {
         position: relative;
-        display: inline-block;
-        border-radius: 20px;
-        margin-bottom: 0px !important;
+        display: flex;
+        justify-content: center;
+        margin-bottom: -5px !important; /* Rapprochement maximal du texte */
     }
 
+    /* Le logo épouse le drop-shadow au lieu d'une boite */
     .logo-wrapper img { 
         width: 340px; 
         height: auto;
-        border: 2px solid rgba(255, 255, 255, 0.8); 
-        border-radius: 20px; 
-        padding: 5px; 
-        background: rgba(26, 28, 36, 0.6); 
-        backdrop-filter: blur(10px);
+        border: none !important; /* SUPPRESSION DU CADRE */
+        background: transparent !important; /* SUPPRESSION DU FOND GRIS */
         animation: shrinkLogoWidth 3s ease-in-out forwards; 
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        transition: transform 0.3s ease, filter 0.3s ease;
         display: block;
     }
     
     .logo-wrapper:hover img { 
         transform: scale(1.05); 
-        box-shadow: 0 0 40px rgba(0, 255, 153, 0.5) !important; 
+        filter: drop-shadow(0 0 25px rgba(0, 255, 153, 0.7)) !important; 
     }
 
-    @keyframes inwardSparkle {
-        0% { box-shadow: inset 0 0 0px rgba(0, 255, 153, 0), 0 0 40px 10px rgba(0, 255, 153, 0.8); }
-        100% { box-shadow: inset 0 0 60px 20px rgba(0, 255, 153, 0.9), 0 0 5px 0px rgba(0, 255, 153, 0.1); }
+    /* SCINTILLEMENT QUI SUIT LES CONTOURS DE L'IMAGE TRANSPARENTE */
+    @keyframes contourSparkle {
+        0% { filter: drop-shadow(0 0 5px rgba(0, 255, 153, 0.4)) brightness(1); transform: scale(1); }
+        100% { filter: drop-shadow(0 0 35px rgba(0, 255, 153, 1)) brightness(1.2) contrast(1.1); transform: scale(1.02); }
     }
 
-    .logo-wrapper::after {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        border-radius: 20px;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+    .logo-wrapper.loading-sparkle img {
+        animation: contourSparkle 0.7s ease-in-out infinite alternate !important;
     }
 
-    .logo-wrapper.loading-sparkle::after {
-        opacity: 1;
-        animation: inwardSparkle 0.8s ease-in-out infinite alternate;
-    }
-
+    /* BASELINE STYLISÉE (Espace hyper réduit) */
     .pif-subtitle { 
         text-align: center; 
         font-weight: 300; 
         font-style: italic; 
         color: #E0E0E0 !important; 
         font-size: 1.5rem; 
-        margin-top: 10px !important; 
-        margin-bottom: 40px !important; 
+        margin-top: 0px !important; 
+        margin-bottom: 35px !important; 
         letter-spacing: 1.5px; 
-        text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); 
+        text-shadow: 0 0 15px rgba(0, 255, 153, 0.4); 
     }
     /* ========================================= */
 
+    /* ANIMATIONS GLOBALES D'APPARITION (GLISSEMENT) */
+    @keyframes slideInFade {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    .match-header, .prob-box, .live-normal-card, .live-upset-card, div[data-testid="stExpander"], .comp-table {
+        animation: slideInFade 0.5s ease-out forwards;
+    }
+
+    /* TITRES DE SECTIONS */
     .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 2.2rem; border-bottom: 2px solid rgba(255, 215, 0, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
     .narine-title { text-align: center; font-weight: 900; color: #00D4FF !important; font-size: 2.2rem; border-bottom: 2px solid rgba(0, 212, 255, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
 
+    /* FENÊTRES MODALES */
     div[role="dialog"] { background-color: rgba(11, 16, 22, 0.95) !important; backdrop-filter: blur(15px); border: 1px solid #00FF99 !important; border-radius: 20px !important; box-shadow: 0 10px 40px rgba(0, 255, 153, 0.2); }
     div[role="dialog"] * { color: #FFFFFF !important; }
     div[role="dialog"] h2, div[role="dialog"] h3 { color: #00FF99 !important; text-align: center; font-weight: 900; }
     
+    /* FIX BUG GRAPHIQUES */
     #vg-tooltip-element { background-color: rgba(26, 28, 36, 0.9) !important; backdrop-filter: blur(5px); color: white !important; border: 1px solid #00FF99 !important; border-radius: 8px; }
     #vg-tooltip-element td { color: white !important; }
     summary.vega-actions { display: none !important; }
 
+    /* VISIBILITÉ DES SELECTBOX */
     div[data-baseweb="select"] > div, div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { background-color: #151821 !important; color: white !important; border-color: #333 !important; }
     li[role="option"] { background-color: #151821 !important; color: white !important; transition: background-color 0.2s ease; }
     div[data-baseweb="select"] svg { fill: white !important; }
@@ -113,15 +115,22 @@ st.markdown("""
 
     [data-testid="stSidebarUserContent"] h1, [data-testid="stSidebarUserContent"] h2, [data-testid="stSidebarUserContent"] h3 { color: #00FF99 !important; font-family: 'Kanit', sans-serif; font-weight: 900; }
 
-    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0B0E14 !important; font-weight: 900 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.3) !important; transition: all 0.3s ease !important; width: 100%; }
+    /* BOUTONS STANDARDS ANIMES (Avec effet Liquid/Tactile au clic) */
+    button[kind="primary"] { background: linear-gradient(90deg, #00FF99, #00CC77) !important; color: #0B0E14 !important; font-weight: 900 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 255, 153, 0.3) !important; transition: all 0.2s ease !important; width: 100%; }
     button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 153, 0.5) !important; }
-    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3) !important; transition: all 0.3s ease !important; width: 100%; }
-    button[kind="secondary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5) !important; }
-    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3) !important; transition: all 0.3s ease !important; width: 100%;}
-    .btn-plan-b button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 75, 75, 0.5) !important; }
+    button[kind="primary"]:active { transform: scale(0.96) !important; box-shadow: 0 2px 10px rgba(0, 255, 153, 0.3) !important; }
     
-    button:has(p:contains("MA BANKROLL")) { background: linear-gradient(90deg, #FFD700, #DAA520) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; transition: all 0.3s ease !important; width: 100%; }
+    button[kind="secondary"] { background: linear-gradient(90deg, #0055FF, #00D4FF) !important; color: white !important; border: none !important; font-weight: 900 !important; border-radius: 8px !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3) !important; transition: all 0.2s ease !important; width: 100%; }
+    button[kind="secondary"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5) !important; }
+    button[kind="secondary"]:active { transform: scale(0.96) !important; }
+    
+    .btn-plan-b button { background: linear-gradient(90deg, #FF4B4B, #FF8800) !important; color: white !important; border: none !important; font-weight: 900 !important; box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3) !important; transition: all 0.2s ease !important; width: 100%;}
+    .btn-plan-b button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 75, 75, 0.5) !important; }
+    .btn-plan-b button:active { transform: scale(0.96) !important; }
+    
+    button:has(p:contains("MA BANKROLL")) { background: linear-gradient(90deg, #FFD700, #DAA520) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important; transition: all 0.2s ease !important; width: 100%; }
     button:has(p:contains("MA BANKROLL")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important; }
+    button:has(p:contains("MA BANKROLL")):active { transform: scale(0.96) !important; }
     button:has(p:contains("MA BANKROLL")) p { color: #0B0E14 !important; font-weight: 900 !important; }
     
     button:has(p:contains("LIVE SURPRISE")) { background: linear-gradient(90deg, #FF0044, #CC0000) !important; border: none !important; box-shadow: 0 4px 15px rgba(255, 0, 68, 0.5) !important; width: 100%; }
@@ -130,10 +139,11 @@ st.markdown("""
     button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; width: 100%; }
     button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
 
-    button:has(p:contains("FOUILLE DANS LA NARINE")) { background: linear-gradient(90deg, #00D4FF, #0055FF) !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; transition: all 0.3s ease !important; width: 100%; }
+    button:has(p:contains("FOUILLE DANS LA NARINE")) { background: linear-gradient(90deg, #00D4FF, #0055FF) !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; transition: all 0.2s ease !important; width: 100%; }
     button:has(p:contains("FOUILLE DANS LA NARINE")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6) !important; }
     button:has(p:contains("FOUILLE DANS LA NARINE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
 
+    /* MATCH HEADER & CARTES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: rgba(26, 28, 36, 0.8); padding: 12px 8px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; backdrop-filter: blur(5px); }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
     .team-logo { width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5)); }
@@ -150,6 +160,7 @@ st.markdown("""
     
     .ticket-match-title { font-weight: bold; color: #00FF99 !important; margin-top: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 1.1rem; }
     
+    /* STYLING DES TABLES */
     .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95rem; background-color: transparent !important; }
     .comp-table th, .comp-table td { border: 1px solid #444; padding: 12px; text-align: center; }
     .comp-table th { background-color: #1a1c24; color: #00FF99 !important; font-weight: 900; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
@@ -157,14 +168,16 @@ st.markdown("""
     
     [data-testid="stDataFrame"] > div { background-color: #0e1117 !important; border: 1px solid #333 !important; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     
+    /* ANIMATION LIVE UPSET */
     @keyframes pulse-border { 0% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); } 50% { border-color: #FF4400; box-shadow: 0 0 20px rgba(255, 68, 0, 0.8); } 100% { border-color: #333; box-shadow: 0 0 0 rgba(255, 68, 0, 0); } }
     .live-upset-card { background: linear-gradient(145deg, #1a0a0a, #11141c); padding: 15px; border-radius: 12px; margin-bottom: 15px; animation: pulse-border 1.5s infinite; border: 2px solid #FF4400; }
     .live-normal-card { background: #151821; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
     .blink-text { color: #FF4400; font-weight: bold; animation: text-pulse 1.5s infinite; font-size: 1.1em; }
     @keyframes text-pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
+    /* STYLE POUR LES TABS DE LA NARINE */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #1a1c24; border-radius: 8px 8px 0 0; color: #aaa; border: 1px solid #333; border-bottom: none; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #1a1c24; border-radius: 8px 8px 0 0; color: #aaa; border: 1px solid #333; border-bottom: none; transition: background-color 0.3s ease; }
     .stTabs [aria-selected="true"] { background-color: #00D4FF !important; color: #0B0E14 !important; font-weight: 900; }
 
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.3rem !important; padding-right: 0.3rem !important; } }
@@ -202,7 +215,7 @@ if 'scorer_ticket' not in st.session_state: st.session_state.scorer_ticket = Non
 if 'mode' not in st.session_state: st.session_state.mode = "std" 
 if 'quantum_mode' not in st.session_state: st.session_state.quantum_mode = False
 
-# STATES MA SÉLECTION & UX
+# STATES UX
 if 'persisted_selections' not in st.session_state: st.session_state.persisted_selections = {}
 if 'selection_validated' not in st.session_state: st.session_state.selection_validated = False
 if 'selection_analyzed' not in st.session_state: st.session_state.selection_analyzed = False
@@ -329,7 +342,7 @@ def get_deep_stats(tid):
             if gf > 0 and random.random() > 0.5: s_70 += 1
             if ga > 0 and random.random() > 0.5: c_70 += 1
         
-        match_date = m['fixture']['date'][:10]
+        match_date = datetime.fromisoformat(m['fixture']['date'].replace('Z', '+00:00')).date()
         history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0, "is_home": h, "date": match_date})
     
     history.sort(key=lambda x: x['date'], reverse=True)
@@ -353,7 +366,6 @@ def process_stats_by_filter(raw_stats, limit, venue="all"):
     
     if not data: return None
     
-    # --- TIME DECAY (Loi de Dégradation Temporelle) ---
     weights = [max(0.5, 1.5 - (0.1 * i)) for i in range(len(data))]
     sum_weights = sum(weights)
     
@@ -362,14 +374,13 @@ def process_stats_by_filter(raw_stats, limit, venue="all"):
     
     pts = [(3 if x['res']=="✅" else (1 if x['res']=="➖" else 0)) for x in data]
     form = sum(p * w for p, w in zip(pts, weights)) / sum_weights
-    # ---------------------------------------------------
     
     cs = sum([1 for x in data if x['ga']==0])
     btts = sum([1 for x in data if x['gf']>0 and x['ga']>0])
     try: vol = statistics.stdev([x['gf'] for x in data])
     except: vol = 0
     
-    match_dates = [x.get('date', datetime.now().strftime("%Y-%m-%d")) for x in data]
+    match_dates = [x['date'] for x in data]
 
     return {"name": raw_stats['name'], "id": raw_stats['id'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form, "cs_rate": cs/len(data)*100, "btts_rate": btts/len(data)*100, "draw_rate": sum([x['ft_draw'] for x in data])/len(data)*100, "vol": vol, "pen_for": sum([x['pen_call'] for x in data]), "red_cards": sum([x['red_card'] for x in data]), "streak": "".join([x['res'] for x in data[:5]]), "count": len(data), "raw_gf": [x['gf'] for x in data], "ht_draws": sum([x['ht_draw'] for x in data]), "ft_draws": sum([x['ft_draw'] for x in data]), "scored_70": sum([x['scored_70'] for x in data]), "conceded_70": sum([x['conceded_70'] for x in data]), "dates": match_dates}
 
@@ -390,80 +401,16 @@ def get_h2h_stats(h_id, a_id):
     if not goals: return None
     return {"vol": statistics.stdev(goals) if len(goals)>1 else 0, "matches": len(goals), "avg_goals": sum(goals)/len(goals)}
 
-# --- NOUVELLES FONCTIONS D'ANALYSE (ORACLE) ---
-def calculate_rest_days(past_dates, match_date_str):
-    if not past_dates: return 7 
-    try:
-        last_match_date = past_dates[0] 
-        if isinstance(last_match_date, str):
-            last_match_date = datetime.strptime(last_match_date[:10], "%Y-%m-%d").date()
-        current_match_date = datetime.strptime(match_date_str[:10], "%Y-%m-%d").date()
-        delta = current_match_date - last_match_date
-        return max(0, delta.days - 1) 
-    except: return 5
-
-def get_ai_estimated_advanced_stats(s, league_tier=1):
-    random.seed(str(s['id']) + str(s['form'])) 
-    form_factor = s['form'] / 3.0 
-    off_factor = min(3.0, s['avg_gf']) / 3.0 
-    def_factor = max(0.1, 3.0 - s['avg_ga']) / 3.0 
-
-    xg_history = [max(0.1, gf * random.uniform(0.75, 1.25) + random.uniform(-0.1, 0.2)) for gf in s['raw_gf']]
-    avg_xg = sum(xg_history) / len(xg_history) if xg_history else s['avg_gf']
-
-    shots_pg = s['avg_gf'] * 5.5 + random.uniform(3, 6) * off_factor
-    sot_pct = 32 + (form_factor * 12) + random.uniform(-4, 4)
-    final_third_poss = 42 + (form_factor * 18) + (off_factor * 8) + random.uniform(-4, 4) 
-    recovery_time = 17 - (form_factor * 5) - (def_factor * 3) + random.uniform(-1.5, 2.5) 
-
-    shots_conceded_pg = s['avg_ga'] * 6.5 + random.uniform(4, 7) * (1-def_factor)
-    gk_save_pct = 68 + (def_factor * 12) + random.uniform(-5, 5)
-    errors_leading_to_shot = max(0, (1-form_factor)*2.5 + (1-def_factor) + random.uniform(-0.5, 1.0))
-    def_line_distance = 36 + (off_factor * 12) + (form_factor * 4) + random.uniform(-4, 4) 
-
-    distance_traveled = random.randint(40, 600) if league_tier == 1 else random.randint(20, 250) 
-    media_pressure = random.randint(30, 85) + (1-form_factor)*15 
-    
-    shots_in_box = shots_pg * (0.55 + off_factor*0.15) * random.uniform(0.85, 1.05)
-    potential_assists = s['avg_gf'] * 0.85 + shots_pg * 0.12 * off_factor
-    transition_speed = 14 - (off_factor * 4) + random.uniform(-1.5, 1.5) 
-    big_chance_ratio = (s['avg_gf'] / max(1, shots_pg)) * 100 * random.uniform(0.95, 1.15) 
-
-    ppda = 15 - (form_factor * 5) - (def_factor * 3) + random.uniform(-2, 2) 
-    aerial_duels_lost = 52 - (def_factor * 8) + random.uniform(-8, 8) 
-    recovery_distance = 42 + (form_factor * 8) + random.uniform(-4, 4) 
-    cb_stability = max(0, int(3 - (form_factor*1.5) + random.uniform(-0.5, 1.5))) 
-
-    random.seed()
-    return {
-        "xg_history": xg_history, "avg_xg": avg_xg, "shots_pg": shots_pg, "sot_pct": sot_pct, "final_third_poss": final_third_poss, "recovery_time": recovery_time,
-        "shots_conceded_pg": shots_conceded_pg, "gk_save_pct": gk_save_pct, "errors_leading_to_shot": errors_leading_to_shot, "def_line_distance": def_line_distance,
-        "distance_traveled": distance_traveled, "media_pressure": media_pressure, "shots_in_box": shots_in_box, "potential_assists": potential_assists, "transition_speed": transition_speed, "big_chance_ratio": big_chance_ratio,
-        "ppda": ppda, "aerial_duels_lost": aerial_duels_lost, "recovery_distance": recovery_distance, "cb_stability": cb_stability
-    }
-
-def calculate_weighted_ou25(h_stats, a_stats, context_val=0):
-    avg_goals_sim = (h_stats['avg_gf'] + a_stats['avg_gf'])
-    score_sim = 1 if avg_goals_sim > 2.5 else 0
-    avg_conceded_opp = (h_stats['avg_ga'] + a_stats['avg_ga'])
-    score_opp = 1 if avg_conceded_opp > 2.5 else 0
-    form_diff = abs(h_stats['form'] - a_stats['form'])
-    score_form = 1 if form_diff > 1.0 or (h_stats['form']>2 and a_stats['form']>2) else 0 
-    score_context = 1 if context_val > 0.5 else 0
-    
-    total_score = (score_sim * 0.40) + (score_opp * 0.30) + (score_form * 0.20) + (score_context * 0.10)
-    is_over = total_score >= 0.55 
-    justifs = []
-    if score_sim: justifs.append("Historique récent prolifique en buts dans cette configuration.")
-    else: justifs.append("Tendance récente à des matchs fermés et tactiques.")
-    if score_opp: justifs.append("Les défenses montrent des signes de fébrilité.")
-    else: justifs.append("Blocs défensifs solides et bien en place.")
-    if form_diff > 1.0: justifs.append("L'écart de niveau pourrait mener à un score fleuve.")
-    elif h_stats['form']>2 and a_stats['form']>2: justifs.append("Deux équipes en pleine confiance offensivement.")
-    return is_over, total_score * 100, " ".join(justifs)
-
+# --- INTELLIGENCE AVANCÉE ---
 def get_advanced_mock_data(h, a):
-    return get_ai_estimated_advanced_stats(h)
+    random.seed(h['id'])
+    h_poss = 50 + (h['form'] - a['form']) * 10 + random.uniform(-3, 3)
+    h_poss = min(75, max(25, h_poss)); a_poss = 100 - h_poss
+    h_xg = h['avg_gf'] * random.uniform(0.9, 1.2); a_xg = a['avg_gf'] * random.uniform(0.9, 1.2)
+    h_shots = h['avg_gf'] * 6.5 + random.uniform(2, 5); a_shots = a['avg_gf'] * 6.5 + random.uniform(2, 5)
+    h_ppda = max(5, 15 - (h['form'] * 2) + random.uniform(-2, 2)); a_ppda = max(5, 15 - (a['form'] * 2) + random.uniform(-2, 2))
+    random.seed()
+    return {"h_poss": h_poss, "a_poss": a_poss, "h_xg": h_xg, "a_xg": a_xg, "h_shots": h_shots, "a_shots": a_shots, "h_sot": h_shots * random.uniform(0.3, 0.45), "a_sot": a_shots * random.uniform(0.3, 0.45), "h_xga": h['avg_ga'] * random.uniform(0.8, 1.1), "a_xga": a['avg_ga'] * random.uniform(0.8, 1.1), "h_ppda": h_ppda, "a_ppda": a_ppda}
 
 def simulate_10k_scenarios(h_stats, a_stats):
     h_lam = max(0.1, (h_stats['avg_gf'] + a_stats['avg_ga']) / 2)
@@ -506,6 +453,7 @@ def get_coherent_probabilities(h, a):
                 if i == 0: prob *= 1.35
                 elif i == 1: prob *= 1.15
                 elif i == 2: prob *= 1.05
+            
             if i > j: ph += prob
             elif i == j: pd += prob
             else: pa += prob
@@ -714,6 +662,7 @@ def display_scan_inline(f_data):
         if not hs_home or not as_away:
             st.warning("Données historiques récentes insuffisantes pour analyser ce match.")
             return
+        
         p = get_coherent_probabilities(hs_home, as_away); p = np.array(p).flatten()
         if len(p) < 3: p = [0.33, 0.34, 0.33]
         q = get_quantum_analysis(hs_home, as_away); adv = get_advanced_mock_data(hs_home, as_away); h2h = get_h2h_stats(hid, aid)
@@ -1009,7 +958,7 @@ if img_b64:
     img_html = f'''
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div class="logo-wrapper">
-            <img src="data:image/jpeg;base64,{img_b64}" alt="Le Pif Du Foot Logo">
+            <img src="data:image/png;base64,{img_b64}" alt="Le Pif Du Foot Logo">
         </div>
         <p class="pif-subtitle">Le nez ne ment jamais</p>
     </div>
@@ -1255,7 +1204,6 @@ elif st.session_state.mode == "deep_dive":
             m_data = match_map_dd[sel_match_dd]
             hid, aid = m_data['teams']['home']['id'], m_data['teams']['away']['id']
             h_name, a_name = m_data['teams']['home']['name'], m_data['teams']['away']['name']
-            lid = m_data['league']['id']
             match_date_str = m_data['fixture']['date'][:10]
 
             with st.spinner("L'IA plonge dans les abysses des données..."):
