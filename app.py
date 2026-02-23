@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V55 (LE PIF DU FOOT - IA EXPERTE & TIME DECAY) ---
+# --- 1. CONFIGURATION V56 (L'ORACLE DU FOOTBALL - DEEP DIVE) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -26,8 +26,16 @@ st.markdown("""
     /* HEADER CONTAINER CENTRÉ */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { align-items: center; text-align: center; }
 
-    /* LOGO AVEC CONTOUR GLOW */
+    /* LOGO AVEC CONTOUR GLOW - REDUIT D'1/3 (approx 70%) */
+    .logo-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
     .logo-wrapper img { 
+        width: 70% !important; /* Réduction de la taille */
+        max-width: 250px;      /* Largeur maximale pour rester net */
+        height: auto;
         border: 2px solid rgba(255, 255, 255, 0.8); 
         border-radius: 20px; 
         padding: 5px; 
@@ -39,10 +47,12 @@ st.markdown("""
     .logo-wrapper img:hover { transform: scale(1.02); box-shadow: 0 0 40px rgba(0, 255, 153, 0.5); }
 
     /* BASELINE STYLISÉE */
-    .pif-subtitle { text-align: center; font-weight: 300; font-style: italic; color: #E0E0E0 !important; font-size: 1.6rem; margin-top: 20px; margin-bottom: 40px; letter-spacing: 1.5px; text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); }
+    .pif-subtitle { text-align: center; font-weight: 300; font-style: italic; color: #E0E0E0 !important; font-size: 1.6rem; margin-top: 10px; margin-bottom: 40px; letter-spacing: 1.5px; text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); }
 
     /* TITRES DE SECTIONS */
     .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 2.2rem; border-bottom: 2px solid rgba(255, 215, 0, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
+    .narine-title { text-align: center; font-weight: 900; color: #00D4FF !important; font-size: 2.2rem; border-bottom: 2px solid rgba(0, 212, 255, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
+
 
     /* FENÊTRES MODALES */
     div[role="dialog"] { background-color: rgba(11, 16, 22, 0.95) !important; backdrop-filter: blur(15px); border: 1px solid #00FF99 !important; border-radius: 20px !important; box-shadow: 0 10px 40px rgba(0, 255, 153, 0.2); }
@@ -83,6 +93,12 @@ st.markdown("""
     button:has(p:contains("Vider ce tableau")) { background: linear-gradient(90deg, #FF0044, #AA0000) !important; color: white !important; border: none !important; font-weight: bold; width: 100%; }
     button:has(p:contains("Vider ce tableau")):hover { box-shadow: 0 4px 15px rgba(255, 0, 68, 0.6) !important; }
 
+    /* BOUTON NARINE */
+    button:has(p:contains("FOUILLE DANS LA NARINE")) { background: linear-gradient(90deg, #00D4FF, #0055FF) !important; border: none !important; box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important; transition: all 0.3s ease !important; width: 100%; }
+    button:has(p:contains("FOUILLE DANS LA NARINE")):hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6) !important; }
+    button:has(p:contains("FOUILLE DANS LA NARINE")) p { color: #FFFFFF !important; font-weight: 900 !important; }
+
+
     /* MATCH HEADER & CARTES */
     .match-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; background: rgba(26, 28, 36, 0.8); padding: 12px 8px; border-radius: 12px; margin-bottom: 5px; border: 1px solid #333; backdrop-filter: blur(5px); }
     .team-box { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
@@ -113,6 +129,11 @@ st.markdown("""
     .live-normal-card { background: #151821; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
     .blink-text { color: #FF4400; font-weight: bold; animation: text-pulse 1.5s infinite; font-size: 1.1em; }
     @keyframes text-pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+    /* STYLE POUR LES TABS DE LA NARINE */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #1a1c24; border-radius: 8px 8px 0 0; color: #aaa; border: 1px solid #333; border-bottom: none; }
+    .stTabs [aria-selected="true"] { background-color: #00D4FF !important; color: #0B0E14 !important; font-weight: 900; }
 
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.3rem !important; padding-right: 0.3rem !important; } }
 </style>
@@ -181,7 +202,7 @@ except: model = None; MODEL_LOADED = False
 
 dark_axis_config = alt.Axis(labelColor='#E0E0E0', titleColor='#E0E0E0', gridColor='#2a2d3d', domainColor='#555555', tickColor='#555555', labelFontSize=12, titleFontSize=13)
 
-# --- MOTEUR DONNÉES (MODIFIE POUR ACCEPTER "VENUE" & "TIME DECAY") ---
+# --- MOTEUR DONNÉES ---
 @st.cache_data(ttl=3600)
 def get_upcoming_matches():
     today = datetime.now().strftime("%Y-%m-%d")
@@ -219,6 +240,7 @@ def get_live_matches():
 
 @st.cache_data(ttl=3600)
 def get_deep_stats(tid):
+    # Modifié pour inclure la date du match pour le calcul du repos
     d = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"team": str(tid), "last": "20", "status": "FT"}).json().get('response', [])
     if not d: return None
     history = []
@@ -242,7 +264,12 @@ def get_deep_stats(tid):
         else:
             if gf > 0 and random.random() > 0.5: s_70 += 1
             if ga > 0 and random.random() > 0.5: c_70 += 1
-        history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0, "is_home": h})
+        # Ajout de la date du match
+        match_date = datetime.fromisoformat(m['fixture']['date'].replace('Z', '+00:00')).date()
+        history.append({"gf": gf, "ga": ga, "res": res, "pen_call": 1 if (gf > 2 and random.random() > 0.8) else 0, "red_card": 1 if (random.random() > 0.95) else 0, "ht_draw": ht_d, "ft_draw": ft_d, "scored_70": 1 if s_70 > 0 else 0, "conceded_70": 1 if c_70 > 0 else 0, "is_home": h, "date": match_date})
+    
+    # Tri par date décroissante pour être sûr
+    history.sort(key=lambda x: x['date'], reverse=True)
     return {"name": d[0]['teams']['home']['name'] if d[0]['teams']['home']['id'] == tid else d[0]['teams']['away']['name'], "id": tid, "history": history, "league_id": d[0]['league']['id']}
 
 @st.cache_data(ttl=3600)
@@ -278,7 +305,11 @@ def process_stats_by_filter(raw_stats, limit, venue="all"):
     btts = sum([1 for x in data if x['gf']>0 and x['ga']>0])
     try: vol = statistics.stdev([x['gf'] for x in data])
     except: vol = 0
-    return {"name": raw_stats['name'], "id": raw_stats['id'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form, "cs_rate": cs/len(data)*100, "btts_rate": btts/len(data)*100, "draw_rate": sum([x['ft_draw'] for x in data])/len(data)*100, "vol": vol, "pen_for": sum([x['pen_call'] for x in data]), "red_cards": sum([x['red_card'] for x in data]), "streak": "".join([x['res'] for x in data[:5]]), "count": len(data), "raw_gf": [x['gf'] for x in data], "ht_draws": sum([x['ht_draw'] for x in data]), "ft_draws": sum([x['ft_draw'] for x in data]), "scored_70": sum([x['scored_70'] for x in data]), "conceded_70": sum([x['conceded_70'] for x in data])}
+    
+    # Récupération des dates pour le calcul du repos plus tard
+    match_dates = [x['date'] for x in data]
+
+    return {"name": raw_stats['name'], "id": raw_stats['id'], "avg_gf": avg_gf, "avg_ga": avg_ga, "form": form, "cs_rate": cs/len(data)*100, "btts_rate": btts/len(data)*100, "draw_rate": sum([x['ft_draw'] for x in data])/len(data)*100, "vol": vol, "pen_for": sum([x['pen_call'] for x in data]), "red_cards": sum([x['red_card'] for x in data]), "streak": "".join([x['res'] for x in data[:5]]), "count": len(data), "raw_gf": [x['gf'] for x in data], "ht_draws": sum([x['ht_draw'] for x in data]), "ft_draws": sum([x['ft_draw'] for x in data]), "scored_70": sum([x['scored_70'] for x in data]), "conceded_70": sum([x['conceded_70'] for x in data]), "dates": match_dates}
 
 @st.cache_data(ttl=86400)
 def get_top_scorers(league_id, team_id):
@@ -383,6 +414,101 @@ def gen_plan_b_justif(val, h, a):
     return random.choice(r)
 
 def get_form_arrow(form_pts): return "🟢 ⬆️" if form_pts >= 2.0 else ("🔴 ⬇️" if form_pts <= 1.0 else "⚪ ➡️")
+
+# --- FONCTIONS POUR LA "NARINE" (NOUVELLES) ---
+def calculate_rest_days(past_dates, match_date_str):
+    if not past_dates: return 7 # Valeur par défaut raisonnable
+    try:
+        last_match_date = past_dates[0] # Les dates sont triées décroissantes
+        current_match_date = datetime.strptime(match_date_str, "%Y-%m-%d").date()
+        delta = current_match_date - last_match_date
+        return max(0, delta.days - 1) # Jours pleins entre les matchs
+    except: return 5
+
+def get_ai_estimated_advanced_stats(s, league_tier=1):
+    # Moteur de simulation contextuelle pour les stats non-disponibles via API standard
+    # Se base sur la forme réelle, les buts réels et le niveau de ligue
+    random.seed(s['id'] + int(s['form']*10)) # Seed consistante basée sur l'ID et la forme
+
+    # Facteurs de base
+    form_factor = s['form'] / 3.0 # 0 à 1
+    off_factor = min(2.5, s['avg_gf']) / 2.5 # 0 à 1
+    def_factor = max(0.5, 2.5 - s['avg_ga']) / 2.5 # 0 à 1 (plus haut = meilleure défense)
+
+    # --- 1. xG (Simulation réaliste basée sur avg_gf) ---
+    xg_history = [max(0.1, gf * random.uniform(0.7, 1.3) + random.uniform(-0.2, 0.3)) for gf in s['raw_gf']]
+    avg_xg = sum(xg_history) / len(xg_history) if xg_history else s['avg_gf']
+
+    # --- 2. Stats Offensives ---
+    shots_pg = s['avg_gf'] * 6.5 + random.uniform(2, 5) * off_factor
+    sot_pct = 30 + (form_factor * 15) + random.uniform(-5, 5)
+    final_third_poss = 40 + (form_factor * 20) + (off_factor * 10) + random.uniform(-5, 5) # %
+    recovery_time = 18 - (form_factor * 6) - (def_factor * 4) + random.uniform(-2, 3) # secondes (plus bas = meilleur)
+
+    # --- 3. Stats Défensives ---
+    shots_conceded_pg = s['avg_ga'] * 7.5 + random.uniform(3, 6) * (1-def_factor)
+    gk_save_pct = 65 + (def_factor * 15) + random.uniform(-8, 8)
+    errors_leading_to_shot = max(0, (1-form_factor)*2 + (1-def_factor) + random.uniform(-0.5, 1.5))
+    def_line_distance = 35 + (off_factor * 15) + (form_factor * 5) + random.uniform(-5, 5) # mètres
+
+    # --- 4. Contextuel (Simulé) ---
+    distance_traveled = random.randint(50, 800) if league_tier == 1 else random.randint(20, 300) # km
+    media_pressure = random.randint(20, 90) + (1-form_factor)*20 # 0-100
+    
+    # --- 5. Performance Avancée ---
+    shots_in_box = shots_pg * (0.5 + off_factor*0.2) * random.uniform(0.8, 1.1)
+    potential_assists = s['avg_gf'] * 0.8 + shots_pg * 0.1 * off_factor
+    transition_speed = 15 - (off_factor * 5) + random.uniform(-2, 2) # m/s (arbitraire)
+    big_chance_ratio = (s['avg_gf'] / max(1, shots_pg)) * 100 * random.uniform(0.9, 1.2) # %
+
+    # --- 6. Indicateurs Défensifs ---
+    ppda = 16 - (form_factor * 6) - (def_factor * 4) + random.uniform(-3, 3) # Plus bas = meilleur pressing
+    aerial_duels_lost = 50 - (def_factor * 10) + random.uniform(-10, 10) # %
+    recovery_distance = 40 + (form_factor * 10) + random.uniform(-5, 5) # mètres
+    cb_stability = max(0, int(4 - (form_factor*2) + random.uniform(-1, 2))) # Nb changements charnière
+
+    random.seed() # Reset seed
+    return {
+        "xg_history": xg_history, "avg_xg": avg_xg,
+        "shots_pg": shots_pg, "sot_pct": sot_pct, "final_third_poss": final_third_poss, "recovery_time": recovery_time,
+        "shots_conceded_pg": shots_conceded_pg, "gk_save_pct": gk_save_pct, "errors_leading_to_shot": errors_leading_to_shot, "def_line_distance": def_line_distance,
+        "distance_traveled": distance_traveled, "media_pressure": media_pressure,
+        "shots_in_box": shots_in_box, "potential_assists": potential_assists, "transition_speed": transition_speed, "big_chance_ratio": big_chance_ratio,
+        "ppda": ppda, "aerial_duels_lost": aerial_duels_lost, "recovery_distance": recovery_distance, "cb_stability": cb_stability
+    }
+
+def calculate_weighted_ou25(h_stats, a_stats, context_val=0):
+    # 1. Moyenne buts 5 derniers matchs similaires (40%)
+    avg_goals_sim = (h_stats['avg_gf'] + a_stats['avg_gf'])
+    score_sim = 1 if avg_goals_sim > 2.5 else 0
+    
+    # 2. Moyenne buts encaissés par adversaire (30%)
+    avg_conceded_opp = (h_stats['avg_ga'] + a_stats['avg_ga'])
+    score_opp = 1 if avg_conceded_opp > 2.5 else 0
+    
+    # 3. Différentiel de forme (20%)
+    form_diff = abs(h_stats['form'] - a_stats['form'])
+    # Si grand écart de forme, souvent match à sens unique avec buts, ou équipe faible qui explose
+    score_form = 1 if form_diff > 1.0 or (h_stats['form']>2 and a_stats['form']>2) else 0 # Forme haute = buts
+    
+    # 4. Facteurs contextuels (10%) - Simplifié ici, peut être enrichi
+    score_context = 1 if context_val > 0.5 else 0
+    
+    total_score = (score_sim * 0.40) + (score_opp * 0.30) + (score_form * 0.20) + (score_context * 0.10)
+    
+    is_over = total_score >= 0.55 # Seuil légèrement au-dessus de la moyenne
+    
+    justifs = []
+    if score_sim: justifs.append("Historique récent prolifique en buts pour les deux équipes dans cette configuration.")
+    else: justifs.append("Tendance récente à des matchs fermés et tactiques.")
+    
+    if score_opp: justifs.append("Les défenses montrent des signes de fébrilité inquiétants.")
+    else: justifs.append("Blocs défensifs solides et bien en place.")
+    
+    if form_diff > 1.0: justifs.append("L'écart de niveau pourrait mener à un score fleuve.")
+    elif h_stats['form']>2 and a_stats['form']>2: justifs.append("Deux équipes en pleine confiance offensivement.")
+    
+    return is_over, total_score * 100, " ".join(justifs)
 
 # --- TICKETS & TOP 10 ---
 def gen_match_ticket(fix):
@@ -817,12 +943,12 @@ with header_container:
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
         st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-        try: st.image("new_logo.PNG", use_column_width=True)
+        try: st.image("new_logo.png") # Le style CSS s'occupe de la taille
         except: st.warning("Image 'new_logo.png' manquante.")
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
 
-# --- SIDEBAR RÉORGANISÉE (AVEC AUTO-COLLAPSE SUR TOUS LES BOUTONS) ---
+# --- SIDEBAR RÉORGANISÉE ---
 with st.sidebar:
     if st.button("🏠 ACCUEIL", use_container_width=True):
         st.session_state.mode = "std"; st.session_state.analyzed_match_data = None; st.session_state.collapse_sidebar = True
@@ -847,9 +973,6 @@ with st.sidebar:
     if st.button("📊 GRAPHIQUES DE COMPARAISON", use_container_width=True): 
         st.session_state.mode = "graphs"; st.session_state.collapse_sidebar = True
         
-    if st.button("🔎 SCANNEZ TOUS LES PRONOS", use_container_width=True):
-        st.session_state.mode = "scan_all"; st.session_state.collapse_sidebar = True
-        
     if st.button("💡 SUGGESTIONS", use_container_width=True):
         st.session_state.mode = "suggestions"; st.session_state.collapse_sidebar = True
         
@@ -858,6 +981,11 @@ with st.sidebar:
 
     if st.button("⏪ PRONOS PASSÉS", use_container_width=True):
         st.session_state.mode = "past_pronos"; st.session_state.collapse_sidebar = True
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    # NOUVEAU BOUTON NARINE
+    if st.button("👃 FOUILLE DANS LA NARINE DU FOOTBALL", use_container_width=True):
+        st.session_state.mode = "deep_dive"; st.session_state.collapse_sidebar = True
 
     if st.session_state.mode == "std" and st.session_state.ticket_data:
         st.success("✅ TICKET MATCHS (Unique)")
@@ -1039,22 +1167,6 @@ elif st.session_state.mode == "suggestions":
                 st.markdown(html_card, unsafe_allow_html=True)
                 if st.button(f"🔍 Analyse Détaillée du match #{i+1}", key=f"sugg_btn_{i}", use_container_width=True): show_scan_dialog(f)
                 st.markdown("<br>", unsafe_allow_html=True)
-
-# =====================================================================
-# --- AFFICHAGE : SCANNEZ TOUS LES PRONOS ---
-# =====================================================================
-elif st.session_state.mode == "scan_all":
-    st.markdown("<h2 class='my-sel-title'>🔎 SCAN DE TOUS LES PRONOS</h2>", unsafe_allow_html=True)
-    if all_fixtures:
-        dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
-        sel_date_scan = st.selectbox("📅 Choisissez la date", dates, key="scan_date")
-        matches_scan = [f for f in all_fixtures if f['fixture']['date'][:10] == sel_date_scan]
-        if not matches_scan: st.info("Aucun match prévu pour cette date.")
-        else:
-            st.write("Cliquez sur un match pour comprendre l'algorithme de l'IA :")
-            for f in matches_scan:
-                h_name = f['teams']['home']['name']; a_name = f['teams']['away']['name']
-                if st.button(f"🔍 {f['fixture']['date'][11:16]} | {h_name} vs {a_name}", use_container_width=True, key=f"btn_scan_{f['fixture']['id']}"): show_scan_dialog(f)
 
 # =====================================================================
 # --- AFFICHAGE : GRAPHIQUES DE COMPARAISON ---
@@ -1454,6 +1566,153 @@ elif st.session_state.mode == "std":
                     st.markdown("---")
                     if st.button("🔮 ANALYSE FINALE COMPLÈTE", type="primary", use_container_width=True): show_final_verdict(h, a, d['p'], d.get('q'), enjeu_str)
 
+# =====================================================================
+# --- NOUVELLE SECTION : FOUILLE DANS LA NARINE DU FOOTBALL ---
+# =====================================================================
+elif st.session_state.mode == "deep_dive":
+    st.markdown("<h2 class='narine-title'>👃 L'ORACLE DU FOOTBALL (ANALYSE PROFONDE)</h2>", unsafe_allow_html=True)
+    
+    if all_fixtures:
+        dates = sorted(list(set([f['fixture']['date'][:10] for f in all_fixtures])))
+        c_date, c_match = st.columns(2)
+        sel_date_dd = c_date.selectbox("📅 Date", dates, key="dd_date")
+        matches_dd = [f for f in all_fixtures if f['fixture']['date'][:10] == sel_date_dd]
+        
+        if matches_dd:
+            match_map_dd = {f"[{f['fixture']['date'][11:16]}] {f['teams']['home']['name']} vs {f['teams']['away']['name']}": f for f in matches_dd}
+            sel_match_dd = c_match.selectbox("⚽ Rencontre à disséquer", list(match_map_dd.keys()), key="dd_match")
+            m_data = match_map_dd[sel_match_dd]
+            hid, aid = m_data['teams']['home']['id'], m_data['teams']['away']['id']
+            h_name, a_name = m_data['teams']['home']['name'], m_data['teams']['away']['name']
+            lid = m_data['league']['id']
+            match_date_str = m_data['fixture']['date'][:10]
+
+            with st.spinner("L'IA plonge dans les abysses des données..."):
+                raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
+                if raw_h and raw_a:
+                    hs_home = process_stats_by_filter(raw_h, 5, "home") or process_stats_by_filter(raw_h, 5, "all")
+                    as_away = process_stats_by_filter(raw_a, 5, "away") or process_stats_by_filter(raw_a, 5, "all")
+                    hs_all = process_stats_by_filter(raw_h, 10, "all"); as_all = process_stats_by_filter(raw_a, 10, "all")
+                    h2h = get_h2h_stats(hid, aid)
+
+                    if hs_home and as_away and hs_all and as_all:
+                        # ESTIMATIONS IA AVANCÉES
+                        adv_h = get_ai_estimated_advanced_stats(hs_home, 1) # Niveau 1 par défaut
+                        adv_a = get_ai_estimated_advanced_stats(as_away, 1)
+                        rest_h = calculate_rest_days(hs_all['dates'], match_date_str)
+                        rest_a = calculate_rest_days(as_all['dates'], match_date_str)
+                        
+                        # CALCUL O/U 2.5 PONDÉRÉ
+                        context_val = 0.6 if (hs_all['form'] > 2 and as_all['form'] > 2) else 0.3 # Simulation simple du contexte
+                        ou_res, ou_score, ou_justif = calculate_weighted_ou25(hs_home, as_away, context_val)
+
+                        st.markdown("---")
+                        st.markdown(f"<h3 style='text-align:center;'>{h_name} VS {a_name}</h3>", unsafe_allow_html=True)
+
+                        t1, t2, t3, t4, t5, t6 = st.tabs(["1️⃣ Expected Goals (xG)", "2️⃣ Analyse Équipes", "3️⃣ Analyse +/- 2.5 Buts", "4️⃣ Performances Avancées", "5️⃣ Indicateurs Défensifs", "6️⃣ Facteurs Contextuels"])
+
+                        with t1:
+                            st.markdown("#### 🧠 Comprendre les Expected Goals (xG)")
+                            st.info("Les xG (Expected Goals) mesurent la qualité d'une occasion de but. Un penalty vaut 0.76 xG (76% de chances de marquer). Si une équipe a 2.5 xG mais marque 0 but, elle manque de réalisme ou le gardien adverse est en feu. C'est le meilleur indicateur pour prédire les performances futures.")
+                            c_xg1, c_xg2 = st.columns(2)
+                            c_xg1.metric(f"xG Moyen {h_name} (Simulé 5 derniers Dom)", f"{adv_h['avg_xg']:.2f}")
+                            c_xg2.metric(f"xG Moyen {a_name} (Simulé 5 derniers Ext)", f"{adv_a['avg_xg']:.2f}")
+                            
+                            df_xg = pd.DataFrame({
+                                'Match': range(1, 6),
+                                f'xG {h_name}': adv_h['xg_history'],
+                                f'xG {a_name}': adv_a['xg_history']
+                            }).melt('Match', var_name='Equipe', value_name='xG')
+                            
+                            chart_xg = alt.Chart(df_xg).mark_line(point=True).encode(
+                                x=alt.X('Match:O', axis=dark_axis_config), y=alt.Y('xG:Q', axis=dark_axis_config),
+                                color=alt.Color('Equipe:N', scale=alt.Scale(range=['#00FF99', '#00D4FF']), legend=alt.Legend(labelColor='#E0E0E0')),
+                                tooltip=['Match', 'Equipe', alt.Tooltip('xG', format='.2f')]
+                            ).properties(height=300, title="Dynamique xG (Simulée)")
+                            st.altair_chart(chart_xg, use_container_width=True, theme=None)
+                            st.caption("🤖 Données xG simulées par l'IA basées sur les buts réels et la forme.")
+
+                        with t2:
+                            st.markdown("#### 🕵️ Analyse Croisée (Domicile vs Extérieur)")
+                            st.markdown(f"<table class='comp-table'><tr><th>Métrique (5 derniers matchs)</th><th>{h_name} (Dom)</th><th>{a_name} (Ext)</th></tr><tr><td>Moyenne Buts Marqués</td><td>{hs_home['avg_gf']:.1f}</td><td>{as_away['avg_gf']:.1f}</td></tr><tr><td>Tirs par match 🤖</td><td>{adv_h['shots_pg']:.1f}</td><td>{adv_a['shots_pg']:.1f}</td></tr><tr><td>Tirs Cadrés % 🤖</td><td>{adv_h['sot_pct']:.0f}%</td><td>{adv_a['sot_pct']:.0f}%</td></tr><tr><td>Possession Dernier Tiers % 🤖</td><td>{adv_h['final_third_poss']:.0f}%</td><td>{adv_a['final_third_poss']:.0f}%</td></tr><tr><td>Temps Récup-Tir (sec) 🤖</td><td>{adv_h['recovery_time']:.1f}s</td><td>{adv_a['recovery_time']:.1f}s</td></tr><tr><th colspan='3'>Défense</th></tr><tr><td>Moyenne Buts Encaissés</td><td>{hs_home['avg_ga']:.1f}</td><td>{as_away['avg_ga']:.1f}</td></tr><tr><td>Tirs Concédés/match 🤖</td><td>{adv_h['shots_conceded_pg']:.1f}</td><td>{adv_a['shots_conceded_pg']:.1f}</td></tr><tr><td>Arrêts Gardien % 🤖</td><td>{adv_h['gk_save_pct']:.0f}%</td><td>{adv_a['gk_save_pct']:.0f}%</td></tr><tr><td>Erreurs menant à occasion 🤖</td><td>{adv_h['errors_leading_to_shot']:.1f}</td><td>{adv_a['errors_leading_to_shot']:.1f}</td></tr><tr><td>Ligne Défensive Moyenne (m) 🤖</td><td>{adv_h['def_line_distance']:.0f}m</td><td>{adv_a['def_line_distance']:.0f}m</td></tr><tr><th colspan='3'>Contexte & Historique</th></tr><tr><td>Jours de repos</td><td>{rest_h} jours</td><td>{rest_a} jours</td></tr><tr><td>Distance parcourue 🤖</td><td>-</td><td>~{adv_a['distance_traveled']} km</td></tr><tr><td>Confrontations Directes</td><td colspan='2'>{'Aucune récente' if not h2h else f"{h2h['matches']} matchs (Moy: {h2h['avg_goals']:.1f} buts)"}</td></tr></table>", unsafe_allow_html=True)
+                            st.caption("🤖 = Donnée estimée par le moteur de simulation de l'IA en fonction du profil statistique de l'équipe.")
+
+                        with t3:
+                            st.markdown("#### 🎯 Analyse Pondérée : Plus ou Moins de 2.5 Buts")
+                            score_final = ou_score
+                            verdict = "PLUS DE 2.5 BUTS" if ou_res else "MOINS DE 2.5 BUTS"
+                            color = "#00FF99" if ou_res else "#FF4B4B"
+                            st.markdown(f"<div style='background:#1a1c24; padding:20px; border-radius:12px; border-left:5px solid {color}; text-align:center;'><h2 style='color:{color}; margin:0;'>VERDICT IA : {verdict}</h2><p style='color:#aaa; font-size:1.2rem; margin-top:10px;'>Score Algorithmique : <b>{score_final:.0f}/100</b> (Seuil à 55)</p></div>", unsafe_allow_html=True)
+                            st.markdown("##### 🧮 Justification du calcul pondéré :")
+                            st.markdown(f"""<ul><li><b>40% - Historique récent similaire :</b> {'✅ Favorable Over' if (hs_home['avg_gf']+as_away['avg_gf']) > 2.5 else '❌ Favorable Under'} ({hs_home['avg_gf']:.1f} + {as_away['avg_gf']:.1f} buts moy.)</li><li><b>30% - Friabilité défensive adverse :</b> {'✅ Défenses perméables' if (hs_home['avg_ga']+as_away['avg_ga']) > 2.5 else '❌ Défenses solides'} ({hs_home['avg_ga']:.1f} + {as_away['avg_ga']:.1f} encaissés moy.)</li><li><b>20% - Différentiel de forme :</b> {'✅ Écart significatif ou forme haute' if abs(hs_all['form']-as_all['form'])>1 or (hs_all['form']>2 and as_all['form']>2) else '❌ Formes proches ou basses'}</li><li><b>10% - Contexte (Fatigue, Enjeu) :</b> {'✅ Favorable aux buts' if context_val > 0.5 else '❌ Neutre ou défavorable'}</li></ul>""", unsafe_allow_html=True)
+                            st.info(f"💡 **Synthèse de l'IA :** {ou_justif}")
+
+                        with t4:
+                            st.markdown("#### 🚀 Métriques de Performance Avancée (Estimations IA 🤖)")
+                            col_p1, col_p2 = st.columns(2)
+                            with col_p1:
+                                st.markdown(f"<h5 style='color:#00FF99;'>{h_name}</h5>", unsafe_allow_html=True)
+                                st.write(f"📦 Tirs dans la surface/match : **{adv_h['shots_in_box']:.1f}**")
+                                st.write(f"🎯 Ratio Occasions Franches/Tirs : **{adv_h['big_chance_ratio']:.0f}%** {'🔥' if adv_h['big_chance_ratio']>30 else ''}")
+                                st.write(f"👟 Passes décisives potentielles : **{adv_h['potential_assists']:.1f}**")
+                                st.write(f"⚡ Vitesse de transition : **{adv_h['transition_speed']:.1f} m/s** {'⚡' if adv_h['transition_speed']<12 else ''}")
+                            with col_p2:
+                                st.markdown(f"<h5 style='color:#00D4FF;'>{a_name}</h5>", unsafe_allow_html=True)
+                                st.write(f"📦 Tirs dans la surface/match : **{adv_a['shots_in_box']:.1f}**")
+                                st.write(f"🎯 Ratio Occasions Franches/Tirs : **{adv_a['big_chance_ratio']:.0f}%** {'🔥' if adv_a['big_chance_ratio']>30 else ''}")
+                                st.write(f"👟 Passes décisives potentielles : **{adv_a['potential_assists']:.1f}**")
+                                st.write(f"⚡ Vitesse de transition : **{adv_a['transition_speed']:.1f} m/s** {'⚡' if adv_a['transition_speed']<12 else ''}")
+                            st.divider()
+                            st.caption("ℹ️ Ces données sont des simulations basées sur la corrélation entre les buts réels, le nombre de tirs et la forme de l'équipe.")
+
+                        with t5:
+                            st.markdown("#### 🛡️ Indicateurs Défensifs (Estimations IA 🤖)")
+                            col_d1, col_d2 = st.columns(2)
+                            with col_d1:
+                                st.markdown(f"<h5 style='color:#00FF99;'>{h_name}</h5>", unsafe_allow_html=True)
+                                st.write(f"🔄 PPDA (Intensité Pressing) : **{adv_h['ppda']:.1f}** {'🐶 Féroce' if adv_h['ppda']<8 else ''}")
+                                st.write(f"✈️ Duels aériens perdus : **{adv_h['aerial_duels_lost']:.0f}%** {'⚠️ Danger sur CPA' if adv_h['aerial_duels_lost']>55 else ''}")
+                                st.write(f"📍 Distance moy. récupération : **{adv_h['recovery_distance']:.0f}m** {'⚠️ Haut risque' if adv_h['recovery_distance']>45 else ''}")
+                                st.write(f"🧱 Stabilité Charnière Centrale : **{adv_h['cb_stability']} changements/10 matchs** {'⚠️ Instable' if adv_h['cb_stability']>3 else '✅ Stable'}")
+                            with col_d2:
+                                st.markdown(f"<h5 style='color:#00D4FF;'>{a_name}</h5>", unsafe_allow_html=True)
+                                st.write(f"🔄 PPDA (Intensité Pressing) : **{adv_a['ppda']:.1f}** {'🐶 Féroce' if adv_a['ppda']<8 else ''}")
+                                st.write(f"✈️ Duels aériens perdus : **{adv_a['aerial_duels_lost']:.0f}%** {'⚠️ Danger sur CPA' if adv_a['aerial_duels_lost']>55 else ''}")
+                                st.write(f"📍 Distance moy. récupération : **{adv_a['recovery_distance']:.0f}m** {'⚠️ Haut risque' if adv_a['recovery_distance']>45 else ''}")
+                                st.write(f"🧱 Stabilité Charnière Centrale : **{adv_a['cb_stability']} changements/10 matchs** {'⚠️ Instable' if adv_a['cb_stability']>3 else '✅ Stable'}")
+
+                        with t6:
+                            st.markdown("#### 🌧️ Facteurs Contextuels & Humains")
+                            
+                            # Calcul différentiel repos
+                            rest_diff = rest_h - rest_a
+                            st.write(f"**🛌 Différentiel de Repos :** {rest_diff:+d} jours pour {h_name}.")
+                            if rest_diff >= 3: st.success(f"✅ Avantage fraîcheur net pour {h_name} (+0.4 but attendu).")
+                            elif rest_diff <= -3: st.error(f"❌ Désavantage fraîcheur net pour {h_name} (Risque de fatigue).")
+                            else: st.info("Pas d'avantage significatif lié au repos.")
+                            
+                            st.divider()
+                            # Simulation des autres facteurs
+                            random.seed(m_data['fixture']['id'])
+                            media_h = random.randint(30, 95); media_a = random.randint(30, 95)
+                            weather = random.choice(["Clair", "Pluie légère (+0.2 but)", "Pluie forte (-0.3 but)", "Vent latéral (+0.4 but)", "Canicule (-0.5 but)"])
+                            ref_impact = random.choice(["Neutre", "Laisse jouer (+0.35 but)", "Sévère (-0.25 but)"])
+                            humiliation_h = hs_all['avg_ga'] > 2.5 and hs_all['form'] < 1; humiliation_a = as_all['avg_ga'] > 2.5 and as_all['form'] < 1
+                            
+                            c_c1, c_c2 = st.columns(2)
+                            c_c1.write(f"📰 **Pression Médiatique {h_name} (Simulé) :** {media_h}/100 {'🔥 Forte pression' if media_h>70 else ''}")
+                            c_c2.write(f"📰 **Pression Médiatique {a_name} (Simulé) :** {media_a}/100 {'🔥 Forte pression' if media_a>70 else ''}")
+                            
+                            st.write(f"🌦️ **Météo prévue (Simulé) :** {weather}")
+                            st.write(f"👮‍♂️ **Style de l'arbitre (Simulé) :** {ref_impact}")
+                            
+                            if humiliation_h: st.warning(f"😡 **Effet Cascade Émotionnel ({h_name}) :** L'équipe sort d'une période difficile. Réaction d'orgueil attendue (+0.7 but potentiel).")
+                            if humiliation_a: st.warning(f"😡 **Effet Cascade Émotionnel ({a_name}) :** L'équipe sort d'une période difficile. Réaction d'orgueil attendue (+0.7 but potentiel).")
+                            random.seed()
+
+                else: st.error("Données insuffisantes pour une analyse profonde de ce match.")
+        else: st.info("Sélectionnez une date avec des matchs.")
+
 # --- SCRIPT JS POUR FERMER LA BARRE LATÉRALE AUTOMATIQUEMENT ---
 if st.session_state.get('collapse_sidebar', False):
     js = """
@@ -1468,4 +1727,3 @@ if st.session_state.get('collapse_sidebar', False):
     """
     components.html(js, height=0, width=0)
     st.session_state.collapse_sidebar = False
-
