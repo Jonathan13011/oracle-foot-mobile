@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import os
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V56.1 (FIX LOGO) ---
+# --- 1. CONFIGURATION V56.2 (ANIMATION LOGO & SPACING) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -26,28 +26,60 @@ st.markdown("""
     /* HEADER CONTAINER CENTRÉ */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { align-items: center; text-align: center; }
 
-    /* LOGO AVEC CONTOUR GLOW - REDUIT D'1/3 (approx 70%) */
+    /* --- NOUVELLE SECTION LOGO ET ANIMATION --- */
+    
+    /* Définition de l'animation : de 100% à 70% */
+    @keyframes shrinkLogoAnimation {
+        0% { transform: scale(1); }
+        100% { transform: scale(0.7); }
+    }
+
     .logo-wrapper {
         display: flex;
         justify-content: center;
-        margin-bottom: 10px;
+        margin-bottom: 0px; /* Espace réduit sous le logo */
     }
     .logo-wrapper img { 
+        /* Taille de base (état 100% actuel) */
         width: 70% !important; 
         max-width: 250px;      
         height: auto;
+        
+        /* Styles visuels */
         border: 2px solid rgba(255, 255, 255, 0.8); 
         border-radius: 20px; 
         padding: 5px; 
         background: rgba(26, 28, 36, 0.6); 
         backdrop-filter: blur(10px);
         box-shadow: 0 0 30px rgba(0, 255, 153, 0.3); 
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .logo-wrapper img:hover { transform: scale(1.02); box-shadow: 0 0 40px rgba(0, 255, 153, 0.5); }
+        
+        /* Application de l'animation sur 3s, 'forwards' garde l'état final à 70% */
+        animation: shrinkLogoAnimation 3s ease-in-out forwards;
 
-    /* BASELINE STYLISÉE */
-    .pif-subtitle { text-align: center; font-weight: 300; font-style: italic; color: #E0E0E0 !important; font-size: 1.6rem; margin-top: 10px; margin-bottom: 40px; letter-spacing: 1.5px; text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); }
+        /* On garde la transition uniquement sur l'ombre pour le survol */
+        transition: box-shadow 0.3s ease;
+    }
+    /* Ajustement du survol pour qu'il fonctionne par-dessus l'échelle 0.7 */
+    .logo-wrapper img:hover { 
+        transform: scale(0.75) !important; /* Zoom léger par rapport au 0.7 final */
+        box-shadow: 0 0 40px rgba(0, 255, 153, 0.5); 
+    }
+
+    /* BASELINE STYLISÉE AVEC ESPACE RÉDUIT */
+    .pif-subtitle { 
+        text-align: center; 
+        font-weight: 300; 
+        font-style: italic; 
+        color: #E0E0E0 !important; 
+        font-size: 1.6rem; 
+        margin-top: 5px; /* Espace réduit au-dessus de la phrase */
+        margin-bottom: 40px; 
+        letter-spacing: 1.5px; 
+        text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); 
+    }
+
+    /* ------------------------------------------ */
+
 
     /* TITRES DE SECTIONS */
     .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 2.2rem; border-bottom: 2px solid rgba(255, 215, 0, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
@@ -929,8 +961,8 @@ with header_container:
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
         st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-        try: st.image("new_logo2.png") 
-        except: st.warning("Image 'new_logo2.png' manquante.")
+        try: st.image("new_logo2.jpg") 
+        except: st.warning("Image 'new_logo2.jpg' manquante.")
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
 
@@ -1327,6 +1359,7 @@ elif st.session_state.mode == "std":
                 if raw_h and raw_a:
                     hs_home = process_stats_by_filter(raw_h, 10, "home") or process_stats_by_filter(raw_h, 10, "all")
                     as_away = process_stats_by_filter(raw_a, 10, "away") or process_stats_by_filter(raw_a, 10, "all")
+                    hs = process_stats_by_filter(raw_h, 10, "all"); as_ = process_stats_by_filter(raw_a, 10, "all")
                     if hs_home and as_away:
                         p = get_coherent_probabilities(hs_home, as_away) 
                         st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
@@ -1465,4 +1498,3 @@ if st.session_state.get('collapse_sidebar', False):
     """
     components.html(js, height=0, width=0)
     st.session_state.collapse_sidebar = False
-
