@@ -10,9 +10,10 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 import os
+import base64
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION V56.2 (ANIMATION LOGO & SPACING) ---
+# --- 1. CONFIGURATION V57 (LE PIF DU FOOT - UX ULTIME & ANIMATIONS) ---
 st.set_page_config(page_title="Le Pif Du Foot", layout="wide", page_icon="👃")
 
 st.markdown("""
@@ -26,60 +27,75 @@ st.markdown("""
     /* HEADER CONTAINER CENTRÉ */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { align-items: center; text-align: center; }
 
-    /* --- NOUVELLE SECTION LOGO ET ANIMATION --- */
+    /* =========================================
+       ANIMATIONS ET DESIGN DU LOGO
+       ========================================= */
     
-    /* Définition de l'animation : de 100% à 70% */
-    @keyframes shrinkLogoAnimation {
-        0% { transform: scale(1); }
-        100% { transform: scale(0.7); }
+    @keyframes shrinkLogoWidth {
+        0% { width: 340px; box-shadow: 0 0 30px rgba(0, 255, 153, 0.3); }
+        100% { width: 238px; box-shadow: 0 0 20px rgba(0, 255, 153, 0.2); } /* Réduction exacte à 70% */
     }
 
     .logo-wrapper {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 0px; /* Espace réduit sous le logo */
+        position: relative;
+        display: inline-block;
+        border-radius: 20px;
+        margin-bottom: 0px !important;
     }
+
     .logo-wrapper img { 
-        /* Taille de base (état 100% actuel) */
-        width: 70% !important; 
-        max-width: 250px;      
+        width: 340px; /* Taille initiale (100%) */
         height: auto;
-        
-        /* Styles visuels */
         border: 2px solid rgba(255, 255, 255, 0.8); 
         border-radius: 20px; 
         padding: 5px; 
         background: rgba(26, 28, 36, 0.6); 
         backdrop-filter: blur(10px);
-        box-shadow: 0 0 30px rgba(0, 255, 153, 0.3); 
-        
-        /* Application de l'animation sur 3s, 'forwards' garde l'état final à 70% */
-        animation: shrinkLogoAnimation 3s ease-in-out forwards;
-
-        /* On garde la transition uniquement sur l'ombre pour le survol */
-        transition: box-shadow 0.3s ease;
+        animation: shrinkLogoWidth 3s ease-in-out forwards; /* Animation de 3s qui reste à 70% à la fin */
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: block;
     }
-    /* Ajustement du survol pour qu'il fonctionne par-dessus l'échelle 0.7 */
-    .logo-wrapper img:hover { 
-        transform: scale(0.75) !important; /* Zoom léger par rapport au 0.7 final */
-        box-shadow: 0 0 40px rgba(0, 255, 153, 0.5); 
+    
+    .logo-wrapper:hover img { 
+        transform: scale(1.05); /* Effet de survol harmonieux */
+        box-shadow: 0 0 40px rgba(0, 255, 153, 0.5) !important; 
     }
 
-    /* BASELINE STYLISÉE AVEC ESPACE RÉDUIT */
+    /* Animation Scintillement IA (Extérieur vers Intérieur) */
+    @keyframes inwardSparkle {
+        0% { box-shadow: inset 0 0 0px rgba(0, 255, 153, 0), 0 0 40px 10px rgba(0, 255, 153, 0.8); }
+        100% { box-shadow: inset 0 0 60px 20px rgba(0, 255, 153, 0.9), 0 0 5px 0px rgba(0, 255, 153, 0.1); }
+    }
+
+    .logo-wrapper::after {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        border-radius: 20px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    /* Classe activée par JavaScript pendant les chargements */
+    .logo-wrapper.loading-sparkle::after {
+        opacity: 1;
+        animation: inwardSparkle 0.8s ease-in-out infinite alternate;
+    }
+
+    /* BASELINE STYLISÉE (Espace réduit d'1 cm environ) */
     .pif-subtitle { 
         text-align: center; 
         font-weight: 300; 
         font-style: italic; 
         color: #E0E0E0 !important; 
-        font-size: 1.6rem; 
-        margin-top: 5px; /* Espace réduit au-dessus de la phrase */
-        margin-bottom: 40px; 
+        font-size: 1.5rem; 
+        margin-top: 10px !important; /* Rapprochement millimétré sous le logo */
+        margin-bottom: 40px !important; 
         letter-spacing: 1.5px; 
         text-shadow: 0 0 15px rgba(0, 255, 153, 0.5); 
     }
-
-    /* ------------------------------------------ */
-
+    /* ========================================= */
 
     /* TITRES DE SECTIONS */
     .my-sel-title { text-align: center; font-weight: 900; color: #FFD700 !important; font-size: 2.2rem; border-bottom: 2px solid rgba(255, 215, 0, 0.5); padding-bottom: 10px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px;}
@@ -151,7 +167,6 @@ st.markdown("""
     .comp-table th, .comp-table td { border: 1px solid #444; padding: 12px; text-align: center; }
     .comp-table th { background-color: #1a1c24; color: #00FF99 !important; font-weight: 900; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
     .comp-table tr:nth-child(even) { background-color: rgba(26, 28, 36, 0.5); }
-    
     [data-testid="stDataFrame"] > div { background-color: #0e1117 !important; border: 1px solid #333 !important; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     
     /* ANIMATION LIVE UPSET */
@@ -169,6 +184,26 @@ st.markdown("""
     @media only screen and (max-width: 640px) { .block-container { padding-top: 1rem !important; padding-left: 0.3rem !important; padding-right: 0.3rem !important; } }
 </style>
 """, unsafe_allow_html=True)
+
+# INJECTION JAVASCRIPT GLOBAL POUR L'ANIMATION DE CHARGEMENT DU LOGO
+components.html("""
+<script>
+if (!window.parent.pifObserver) {
+    window.parent.pifObserver = new MutationObserver(() => {
+        const spinner = window.parent.document.querySelector('[data-testid="stSpinner"]');
+        const logoWrap = window.parent.document.querySelector('.logo-wrapper');
+        if (logoWrap) {
+            if (spinner) {
+                logoWrap.classList.add('loading-sparkle');
+            } else {
+                logoWrap.classList.remove('loading-sparkle');
+            }
+        }
+    });
+    window.parent.pifObserver.observe(window.parent.document.body, {childList: true, subtree: true});
+}
+</script>
+""", height=0, width=0)
 
 API_KEY = "4d3c1dbf76600a937722ff6425d450ee"
 HEADERS = {'x-rapidapi-host': "v3.football.api-sports.io", 'x-rapidapi-key': API_KEY}
@@ -205,30 +240,33 @@ def get_empty_bankroll():
         "Prono de l'IA": ["" for _ in range(20)]
     })
 
-# STATES BANKROLL (Persistance Totale & Versioning pour forcer le rafraîchissement)
+# STATES BANKROLL & WINRATE (Persistance Totale)
 BANKROLL_FILE = 'bankroll_data.pkl'
-if 'bankroll_versions' not in st.session_state:
-    st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
+ACCURACY_FILE = 'accuracy_history.pkl'
 
+if 'bankroll_versions' not in st.session_state: st.session_state.bankroll_versions = {f"Tableau {i}": 0 for i in range(1, 11)}
 if 'bankrolls' not in st.session_state:
     if os.path.exists(BANKROLL_FILE):
         try: 
             st.session_state.bankrolls = joblib.load(BANKROLL_FILE)
             for k in st.session_state.bankrolls.keys():
-                if k not in st.session_state.bankroll_versions:
-                    st.session_state.bankroll_versions[k] = 0
+                if k not in st.session_state.bankroll_versions: st.session_state.bankroll_versions[k] = 0
         except: pass
     if 'bankrolls' not in st.session_state or not st.session_state.bankrolls:
-        st.session_state.bankrolls = {}
-        for i in range(1, 11):
-            st.session_state.bankrolls[f"Tableau {i}"] = get_empty_bankroll()
+        st.session_state.bankrolls = {f"Tableau {i}": get_empty_bankroll() for i in range(1, 11)}
         joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
+
+if 'accuracy_history' not in st.session_state:
+    if os.path.exists(ACCURACY_FILE):
+        try: st.session_state.accuracy_history = joblib.load(ACCURACY_FILE)
+        except: st.session_state.accuracy_history = {}
+    else: st.session_state.accuracy_history = {}
 
 needs_save = False
 for k in st.session_state.bankrolls:
-    if "Prono de l'IA" not in st.session_state.bankrolls[k].columns:
-        st.session_state.bankrolls[k]["Prono de l'IA"] = ""; needs_save = True
+    if "Prono de l'IA" not in st.session_state.bankrolls[k].columns: st.session_state.bankrolls[k]["Prono de l'IA"] = ""; needs_save = True
     st.session_state.bankrolls[k]["NOMS DES EQUIPES"] = st.session_state.bankrolls[k]["NOMS DES EQUIPES"].fillna("")
+    st.session_state.bankrolls[k]["PRONOS"] = st.session_state.bankrolls[k]["PRONOS"].fillna("")
 if needs_save: joblib.dump(st.session_state.bankrolls, BANKROLL_FILE)
 
 try: model = joblib.load('oracle_brain.pkl'); MODEL_LOADED = True
@@ -512,7 +550,7 @@ def generate_top_10_suggestions(fixtures):
                 p = get_coherent_probabilities(hs_home, as_away); p = np.array(p).flatten()
                 if len(p) >= 3:
                     best_idx = np.argmax(p); conf = p[best_idx] * 100; q = get_quantum_analysis(hs_home, as_away)
-                    if conf >= 45:
+                    if conf >= 45: # SEUIL NO BET
                         score = conf - (q['upset_risk'] * 0.2)
                         pick = f"Victoire {hs['name']}" if best_idx==1 else (f"Victoire {as_['name']}" if best_idx==2 else "Match Nul")
                         candidates.append({'score': score, 'conf': conf, 'f': f, 'pick': pick, 'hs': hs, 'as_': as_, 'q': q})
@@ -530,6 +568,20 @@ def update_user_selection(fix_id, match_str, home_id, away_id, league_id):
 def set_match_and_analyze(m_str):
     st.session_state.main_match_select = m_str
     st.session_state.auto_trigger_analyze = True
+
+all_fixtures = get_upcoming_matches()
+
+# --- PREPARATION DES OPTIONS BANKROLL ---
+match_options = [""]
+prono_options = ["", "Match Nul", "Moins de 2.5 buts", "Plus de 2.5 buts", "Les 2 marquent: OUI", "Les 2 marquent: NON"]
+if all_fixtures:
+    match_options += [f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" for f in all_fixtures]
+    teams = set([f['teams']['home']['name'] for f in all_fixtures] + [f['teams']['away']['name'] for f in all_fixtures])
+    prono_options += list(teams) + [f"Victoire {t}" for t in teams]
+
+def style_prono_col(col):
+    if col.name == "Prono de l'IA": return ['background-color: #0a2918; color: #00FF99; font-weight: bold;'] * len(col)
+    return [''] * len(col)
 
 # --- FONCTIONS BANKROLL AUTO ---
 def get_status_all_matches():
@@ -590,81 +642,17 @@ def style_bankroll_df(df):
         return c
     return df.style.apply(highlight, axis=None)
 
-# --- FONCTIONS D'ANALYSE ---
-def calculate_rest_days(past_dates, match_date_str):
-    if not past_dates: return 7
-    try:
-        last_match_date = past_dates[0]
-        current_match_date = datetime.strptime(match_date_str, "%Y-%m-%d").date()
-        delta = current_match_date - last_match_date
-        return max(0, delta.days - 1)
-    except: return 5
-
-def get_ai_estimated_advanced_stats(s, league_tier=1):
-    random.seed(s['id'] + int(s['form']*10))
-    form_factor = s['form'] / 3.0
-    off_factor = min(2.5, s['avg_gf']) / 2.5
-    def_factor = max(0.5, 2.5 - s['avg_ga']) / 2.5
-    xg_history = [max(0.1, gf * random.uniform(0.7, 1.3) + random.uniform(-0.2, 0.3)) for gf in s['raw_gf']]
-    avg_xg = sum(xg_history) / len(xg_history) if xg_history else s['avg_gf']
-    shots_pg = s['avg_gf'] * 6.5 + random.uniform(2, 5) * off_factor
-    sot_pct = 30 + (form_factor * 15) + random.uniform(-5, 5)
-    final_third_poss = 40 + (form_factor * 20) + (off_factor * 10) + random.uniform(-5, 5)
-    recovery_time = 18 - (form_factor * 6) - (def_factor * 4) + random.uniform(-2, 3)
-    shots_conceded_pg = s['avg_ga'] * 7.5 + random.uniform(3, 6) * (1-def_factor)
-    gk_save_pct = 65 + (def_factor * 15) + random.uniform(-8, 8)
-    errors_leading_to_shot = max(0, (1-form_factor)*2 + (1-def_factor) + random.uniform(-0.5, 1.5))
-    def_line_distance = 35 + (off_factor * 15) + (form_factor * 5) + random.uniform(-5, 5)
-    distance_traveled = random.randint(50, 800) if league_tier == 1 else random.randint(20, 300)
-    media_pressure = random.randint(20, 90) + (1-form_factor)*20
-    shots_in_box = shots_pg * (0.5 + off_factor*0.2) * random.uniform(0.8, 1.1)
-    potential_assists = s['avg_gf'] * 0.8 + shots_pg * 0.1 * off_factor
-    transition_speed = 15 - (off_factor * 5) + random.uniform(-2, 2)
-    big_chance_ratio = (s['avg_gf'] / max(1, shots_pg)) * 100 * random.uniform(0.9, 1.2)
-    ppda = 16 - (form_factor * 6) - (def_factor * 4) + random.uniform(-3, 3)
-    aerial_duels_lost = 50 - (def_factor * 10) + random.uniform(-10, 10)
-    recovery_distance = 40 + (form_factor * 10) + random.uniform(-5, 5)
-    cb_stability = max(0, int(4 - (form_factor*2) + random.uniform(-1, 2)))
-    random.seed()
-    return {
-        "xg_history": xg_history, "avg_xg": avg_xg, "shots_pg": shots_pg, "sot_pct": sot_pct, "final_third_poss": final_third_poss, "recovery_time": recovery_time,
-        "shots_conceded_pg": shots_conceded_pg, "gk_save_pct": gk_save_pct, "errors_leading_to_shot": errors_leading_to_shot, "def_line_distance": def_line_distance,
-        "distance_traveled": distance_traveled, "media_pressure": media_pressure, "shots_in_box": shots_in_box, "potential_assists": potential_assists, "transition_speed": transition_speed, "big_chance_ratio": big_chance_ratio,
-        "ppda": ppda, "aerial_duels_lost": aerial_duels_lost, "recovery_distance": recovery_distance, "cb_stability": cb_stability
-    }
-
-def calculate_weighted_ou25(h_stats, a_stats, context_val=0):
-    avg_goals_sim = (h_stats['avg_gf'] + a_stats['avg_gf'])
-    score_sim = 1 if avg_goals_sim > 2.5 else 0
-    avg_conceded_opp = (h_stats['avg_ga'] + a_stats['avg_ga'])
-    score_opp = 1 if avg_conceded_opp > 2.5 else 0
-    form_diff = abs(h_stats['form'] - a_stats['form'])
-    score_form = 1 if form_diff > 1.0 or (h_stats['form']>2 and a_stats['form']>2) else 0
-    score_context = 1 if context_val > 0.5 else 0
-    total_score = (score_sim * 0.40) + (score_opp * 0.30) + (score_form * 0.20) + (score_context * 0.10)
-    is_over = total_score >= 0.55
-    justifs = []
-    if score_sim: justifs.append("Historique récent prolifique en buts pour les deux équipes dans cette configuration.")
-    else: justifs.append("Tendance récente à des matchs fermés et tactiques.")
-    if score_opp: justifs.append("Les défenses montrent des signes de fébrilité inquiétants.")
-    else: justifs.append("Blocs défensifs solides et bien en place.")
-    if form_diff > 1.0: justifs.append("L'écart de niveau pourrait mener à un score fleuve.")
-    elif h_stats['form']>2 and a_stats['form']>2: justifs.append("Deux équipes en pleine confiance offensivement.")
-    return is_over, total_score * 100, " ".join(justifs)
-
 def display_scan_inline(f_data):
     hid, aid = f_data['teams']['home']['id'], f_data['teams']['away']['id']
     h_name, a_name = f_data['teams']['home']['name'], f_data['teams']['away']['name']
     with st.spinner("L'IA compile l'intégralité des données..."):
         raw_h = get_deep_stats(hid); raw_a = get_deep_stats(aid)
-        if not raw_h or not raw_a:
-            st.warning("Données historiques récentes insuffisantes pour analyser ce match.")
-            return
+        if not raw_h or not raw_a: st.warning("Données historiques récentes insuffisantes pour analyser ce match."); return
         hs_home = process_stats_by_filter(raw_h, 10, "home") or process_stats_by_filter(raw_h, 10, "all")
         as_away = process_stats_by_filter(raw_a, 10, "away") or process_stats_by_filter(raw_a, 10, "all")
-        if not hs_home or not as_away:
-            st.warning("Données historiques récentes insuffisantes pour analyser ce match.")
-            return
+        hs = process_stats_by_filter(raw_h, 10, "all"); as_ = process_stats_by_filter(raw_a, 10, "all")
+        if not hs_home or not as_away: st.warning("Données historiques récentes insuffisantes pour analyser ce match."); return
+        
         p = get_coherent_probabilities(hs_home, as_away); p = np.array(p).flatten()
         if len(p) < 3: p = [0.33, 0.34, 0.33]
         q = get_quantum_analysis(hs_home, as_away); adv = get_advanced_mock_data(hs_home, as_away); h2h = get_h2h_stats(hid, aid)
@@ -678,18 +666,6 @@ def display_scan_inline(f_data):
         html_content = f"""<div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #00D4FF; margin-bottom:10px;'><b style='color:white;'>📊 Probabilités Mathématiques</b><br><span style='color:#ccc; font-size:0.9rem;'>Modèle de Poisson basé sur les moyennes de buts. Confiance estimée à <b>{p[best_idx]*100:.1f}%</b>. ({hs_home['avg_gf']:.1f} buts pour {h_name} vs {as_away['avg_gf']:.1f} pour {a_name}).</span></div><div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #FFD700; margin-bottom:10px;'><b style='color:white;'>🧬 Moteur Quantique (xG)</b><br><span style='color:#ccc; font-size:0.9rem;'>Rapport Expected Goals : <b>{q['xg_h']:.2f}</b> vs <b>{q['xg_a']:.2f}</b>. L'algorithme a isolé le score exact de <b>{q['sniper_score']}</b> parmi 10 000 matrices.</span></div><div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #FF4B4B; margin-bottom:10px;'><b style='color:white;'>🔥 Dynamique & Forme</b><br><span style='color:#ccc; font-size:0.9rem;'>Indice de forme récent : <b>{hs_home['form']:.1f} pts/m</b> pour {h_name} contre <b>{as_away['form']:.1f} pts/m</b> pour {a_name}.</span></div><div style='background:#1a1c24; padding:15px; border-radius:8px; border-left:4px solid #00FF99;'><b style='color:white;'>♟️ Configuration Tactique</b><br><span style='color:#ccc; font-size:0.9rem;'>L'IA projette une possession de <b>{adv['h_poss']:.0f}%</b> pour {h_name}. Intensité de pressing (PPDA) : {adv['h_ppda']:.1f} vs {adv['a_ppda']:.1f}.</span></div>"""
         st.markdown(html_content, unsafe_allow_html=True)
         if h2h: st.info(f"⚔️ **Historique H2H :** Sur les confrontations récentes, on observe une moyenne de **{h2h['avg_goals']:.1f} buts/match**.")
-
-all_fixtures = get_upcoming_matches()
-match_options = [""]
-prono_options = ["", "Match Nul", "Moins de 2.5 buts", "Plus de 2.5 buts", "Les 2 marquent: OUI", "Les 2 marquent: NON"]
-if all_fixtures:
-    match_options += [f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}" for f in all_fixtures]
-    teams = set([f['teams']['home']['name'] for f in all_fixtures] + [f['teams']['away']['name'] for f in all_fixtures])
-    prono_options += list(teams) + [f"Victoire {t}" for t in teams]
-
-def style_prono_col(col):
-    if col.name == "Prono de l'IA": return ['background-color: #0a2918; color: #00FF99; font-weight: bold;'] * len(col)
-    return [''] * len(col)
 
 # --- DIALOGS (MODALES) ---
 @st.dialog("➕ AJOUTER UN PRONOSTIC", width="large")
@@ -795,7 +771,7 @@ def show_day_accuracy_dialog(date_str, days_ago):
                         p = get_coherent_probabilities(hs_home, as_away); p = np.array(p).flatten()
                         if len(p) >= 3:
                             best_idx = np.argmax(p)
-                            if p[best_idx] >= 0.45:
+                            if p[best_idx] >= 0.45: # ON EVALUE SEULEMENT QUAND L'IA A PARIÉ (PAS DE NO BET)
                                 ai_pick = "H" if best_idx==1 else ("A" if best_idx==2 else "D")
                                 actual_res = "H" if gh > ga else ("A" if ga > gh else "D")
                                 if ai_pick == actual_res: correct += 1
@@ -955,16 +931,25 @@ def show_final_verdict(h, a, p, q, enjeu_str):
     st.write(f"- **Dynamique (Forme) :** {h['form']:.1f} pts/m vs {a['form']:.1f} pts/m\n- **Discipline :** {'Attention aux cartons/pénos' if (h['red_cards']+a['red_cards'] > 2) else 'Match fluide attendu'}.")
     if enjeu_str: st.write(f"- **Contexte & Enjeu :** {enjeu_str}")
 
-# --- HEADER PRINCIPAL ---
-header_container = st.container()
-with header_container:
-    c_l, c_img, c_r = st.columns([1, 1, 1])
-    with c_img:
-        st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-        try: st.image("new_logo2.png") 
-        except: st.warning("Image 'new_logo2.png' manquante.")
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
+# --- HEADER PRINCIPAL AVEC LOGO BASE64 ---
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file: return base64.b64encode(img_file.read()).decode()
+    except: return ""
+
+img_b64 = get_base64_image("new_logo2.png")
+if img_b64:
+    img_html = f'''
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div class="logo-wrapper">
+            <img src="data:image/jpeg;base64,{img_b64}" alt="Le Pif Du Foot Logo">
+        </div>
+        <p class="pif-subtitle">Le nez ne ment jamais</p>
+    </div>
+    '''
+    st.markdown(img_html, unsafe_allow_html=True)
+else:
+    st.warning("Image 'new_logo2.png' manquante.")
 
 # --- SIDEBAR RÉORGANISÉE ---
 with st.sidebar:
@@ -987,6 +972,9 @@ with st.sidebar:
     
     if st.button("📝 MA SÉLECTION", use_container_width=True):
         st.session_state.mode = "my_selection"; st.session_state.selection_validated = False; st.session_state.auto_analyzed = False; st.session_state.show_plan_b = False; st.session_state.collapse_sidebar = True
+        
+    if st.button("📊 GRAPHIQUES DE COMPARAISON", use_container_width=True): 
+        st.session_state.mode = "graphs"; st.session_state.collapse_sidebar = True
         
     if st.button("💡 SUGGESTIONS", use_container_width=True):
         st.session_state.mode = "suggestions"; st.session_state.collapse_sidebar = True
@@ -1200,7 +1188,6 @@ elif st.session_state.mode == "deep_dive":
             m_data = match_map_dd[sel_match_dd]
             hid, aid = m_data['teams']['home']['id'], m_data['teams']['away']['id']
             h_name, a_name = m_data['teams']['home']['name'], m_data['teams']['away']['name']
-            lid = m_data['league']['id']
             match_date_str = m_data['fixture']['date'][:10]
 
             with st.spinner("L'IA plonge dans les abysses des données..."):
@@ -1359,7 +1346,6 @@ elif st.session_state.mode == "std":
                 if raw_h and raw_a:
                     hs_home = process_stats_by_filter(raw_h, 10, "home") or process_stats_by_filter(raw_h, 10, "all")
                     as_away = process_stats_by_filter(raw_a, 10, "away") or process_stats_by_filter(raw_a, 10, "all")
-                    hs = process_stats_by_filter(raw_h, 10, "all"); as_ = process_stats_by_filter(raw_a, 10, "all")
                     if hs_home and as_away:
                         p = get_coherent_probabilities(hs_home, as_away) 
                         st.session_state.analyzed_match_data = {"m": match_data, "raw_h": raw_h, "raw_a": raw_a, "p": p}
@@ -1484,7 +1470,7 @@ elif st.session_state.mode == "std":
                     st.markdown("---")
                     if st.button("🔮 ANALYSE FINALE COMPLÈTE", type="primary", use_container_width=True): show_final_verdict(h, a, d['p'], d.get('q'), enjeu_str)
 
-# --- SCRIPT JS POUR FERMER LA BARRE LATÉRALE AUTOMATIQUEMENT ---
+# --- SCRIPT JS POUR FERMER LA BARRE LATÉRALE AUTOMATIQUEMENT ET SCROLLER EN HAUT ---
 if st.session_state.get('collapse_sidebar', False):
     js = """
     <script>
@@ -1493,6 +1479,7 @@ if st.session_state.get('collapse_sidebar', False):
         if (closeBtn && closeBtn.getAttribute('aria-expanded') === 'true') {
             closeBtn.click();
         }
+        window.parent.scrollTo({top: 0, behavior: 'smooth'});
     }, 100);
     </script>
     """
