@@ -929,8 +929,8 @@ with header_container:
     c_l, c_img, c_r = st.columns([1, 1, 1])
     with c_img:
         st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-        try: st.image("new_logo2.jpg") 
-        except: st.warning("Image 'new_logo2.jpg' manquante.")
+        try: st.image("new_logo2.png") 
+        except: st.warning("Image 'new_logo2.png' manquante.")
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("<p class='pif-subtitle'>Le nez ne ment jamais</p>", unsafe_allow_html=True)
 
@@ -1465,3 +1465,4 @@ if st.session_state.get('collapse_sidebar', False):
     """
     components.html(js, height=0, width=0)
     st.session_state.collapse_sidebar = False
+
