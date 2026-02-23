@@ -1035,7 +1035,7 @@ if img_b64:
     '''
     st.markdown(img_html, unsafe_allow_html=True)
 else:
-    st.warning("Image 'new_logo.png2' manquante.")
+    st.warning("Image 'new_logo2.png' manquante.")
 
 # --- SIDEBAR RÉORGANISÉE ---
 with st.sidebar:
